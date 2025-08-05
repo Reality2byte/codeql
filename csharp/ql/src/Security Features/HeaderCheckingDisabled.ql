@@ -3,6 +3,7 @@
  * @description Finds places where header checking is disabled.
  * @kind problem
  * @problem.severity warning
+ * @security-severity 6.1
  * @precision high
  * @id cs/web/disabled-header-checking
  * @tags security
@@ -18,8 +19,7 @@ where
   exists(Assignment a, PropertyAccess pa |
     a.getLValue() = pa and
     pa.getTarget().hasName("EnableHeaderChecking") and
-    pa
-        .getTarget()
+    pa.getTarget()
         .getDeclaringType()
         .hasQualifiedName("System.Web.Configuration", "HttpRuntimeSection") and
     a.getRValue().getValue() = "false" and
@@ -27,7 +27,7 @@ where
   )
   or
   // header checking is disabled in a configuration file
-  exists(HttpRuntimeXMLElement e, XMLAttribute a |
+  exists(HttpRuntimeXmlElement e, XmlAttribute a |
     a = e.getAttribute("enableHeaderChecking") and
     a.getValue().toLowerCase() = "false" and
     a = l

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 interface I1<in T> { }
 interface I2<out T> { }
 interface I3<in T1, out T2> : I1<T1>, I2<T2> { }
+interface I4<in T3, T4> where T3 : C1 { I4<T3, T4> M(I4<C1, T4> x); }
 
 class C1 { }
 
@@ -86,4 +87,7 @@ class C2 : C1
     }
 }
 
-// semmle-extractor-options: /r:System.Dynamic.Runtime.dll /r:System.Linq.Expressions.dll
+class C3<T5, T6> where T5 : C1
+{
+    public I4<T5, T6> M(I4<C1, T6> x) => x;
+}

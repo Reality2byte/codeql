@@ -12,14 +12,20 @@
 import csharp
 import semmle.code.csharp.frameworks.System
 
+private predicate equalsMethodChild(EqualsMethod equals, Element child) {
+  child = equals
+  or
+  equalsMethodChild(equals, child.getParent())
+}
+
 predicate nodeBeforeParameterAccess(ControlFlow::Node node) {
-  exists(EqualsMethod equals | equals.getBody() = node.getElement())
+  exists(EqualsMethod equals | equals.getBody() = node.getAstNode())
   or
   exists(EqualsMethod equals, Parameter param, ControlFlow::Node mid |
     equals.getParameter(0) = param and
-    equals.getAChild*() = mid.getElement() and
+    equalsMethodChild(equals, mid.getAstNode()) and
     nodeBeforeParameterAccess(mid) and
-    not param.getAnAccess() = mid.getElement() and
+    not param.getAnAccess() = mid.getAstNode() and
     mid.getASuccessor() = node
   )
 }
@@ -29,4 +35,4 @@ where
   access = cast.getAChild() and
   access.getTarget().getDeclaringElement() = access.getEnclosingCallable() and
   nodeBeforeParameterAccess(access.getAControlFlowNode())
-select cast, "Missing type-check before casting parameter to 'Equals'."
+select cast, "Equals() method does not check argument type."

@@ -6,7 +6,7 @@ import com.semmle.ts.ast.ITypeExpression;
 /**
  * A literal constant.
  *
- * <p>A <tt>null</tt> literal may occur as a TypeScript type annotation - other literals are always
+ * <p>A <code>null</code> literal may occur as a TypeScript type annotation - other literals are always
  * expressions.
  */
 public class Literal extends Expression implements ITypeExpression {
@@ -57,6 +57,11 @@ public class Literal extends Expression implements ITypeExpression {
   /** Is this a regular expression literal? */
   public boolean isRegExp() {
     return tokenType == TokenType.regexp;
+  }
+
+  /** Is this a string literal? */
+  public boolean isStringLiteral() {
+    return tokenType == TokenType.string;
   }
 
   /** The value of this literal expressed as a string. */

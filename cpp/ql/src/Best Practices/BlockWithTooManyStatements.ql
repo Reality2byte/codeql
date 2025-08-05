@@ -14,7 +14,7 @@ import cpp
 
 class ComplexStmt extends Stmt {
   ComplexStmt() {
-    exists(Block body |
+    exists(BlockStmt body |
       body = this.(Loop).getStmt() or
       body = this.(SwitchStmt).getStmt()
     |
@@ -24,12 +24,9 @@ class ComplexStmt extends Stmt {
   }
 }
 
-from Block b, int n, ComplexStmt complexStmt
+from BlockStmt b, int n, ComplexStmt complexStmt
 where
   n = strictcount(ComplexStmt s | s = b.getAStmt()) and
   n > 3 and
   complexStmt = b.getAStmt()
-select b,
-  "Block with too many statements (" + n.toString() +
-    " complex statements in the block). Complex statements at: $@", complexStmt,
-  complexStmt.toString()
+select b, "Block with too many statements (" + n.toString() + " complex statements in the block)."

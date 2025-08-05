@@ -90,4 +90,8 @@
 	bound::unknown();
 });
 
-// semmle-extractor-options: --experimental
+(async function* f() {
+  yield* {
+    get p() { }
+  };
+});

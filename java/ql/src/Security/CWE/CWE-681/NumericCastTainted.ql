@@ -4,6 +4,7 @@
  *              can cause unexpected truncation.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.0
  * @precision high
  * @id java/tainted-numeric-cast
  * @tags security
@@ -12,36 +13,13 @@
  */
 
 import java
-import semmle.code.java.dataflow.FlowSources
-import NumericCastCommon
-import DataFlow::PathGraph
+import semmle.code.java.security.NumericCastTaintedQuery
+import NumericCastFlow::PathGraph
 
-private class NumericCastFlowConfig extends TaintTracking::Configuration {
-  NumericCastFlowConfig() { this = "NumericCastTainted::RemoteUserInputToNumericNarrowingCastExpr" }
-
-  override predicate isSource(DataFlow::Node src) { src instanceof RemoteFlowSource }
-
-  override predicate isSink(DataFlow::Node sink) {
-    sink.asExpr() = any(NumericNarrowingCastExpr cast).getExpr()
-  }
-
-  override predicate isSanitizer(DataFlow::Node node) {
-    boundedRead(node.asExpr()) or
-    castCheck(node.asExpr()) or
-    node.getType() instanceof SmallType or
-    smallExpr(node.asExpr()) or
-    node.getEnclosingCallable() instanceof HashCodeMethod
-  }
-}
-
-from
-  DataFlow::PathNode source, DataFlow::PathNode sink, NumericNarrowingCastExpr exp,
-  VarAccess tainted, NumericCastFlowConfig conf
+from NumericCastFlow::PathNode source, NumericCastFlow::PathNode sink, NumericNarrowingCastExpr exp
 where
-  exp.getExpr() = tainted and
-  sink.getNode().asExpr() = tainted and
-  conf.hasFlowPath(source, sink) and
-  not exists(RightShiftOp e | e.getShiftedVariable() = tainted.getVariable())
+  sink.getNode().asExpr() = exp.getExpr() and
+  NumericCastFlow::flowPath(source, sink)
 select exp, source, sink,
-  "$@ flows to here and is cast to a narrower type, potentially causing truncation.",
-  source.getNode(), "User-provided value"
+  "This cast to a narrower type depends on a $@, potentially causing truncation.", source.getNode(),
+  "user-provided value"

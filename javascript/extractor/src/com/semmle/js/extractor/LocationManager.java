@@ -1,13 +1,15 @@
 package com.semmle.js.extractor;
 
-import com.semmle.js.ast.Position;
-import com.semmle.js.ast.SourceElement;
-import com.semmle.util.files.FileUtil;
-import com.semmle.util.trap.TrapWriter;
-import com.semmle.util.trap.TrapWriter.Label;
 import java.io.File;
 import java.util.LinkedHashSet;
 import java.util.Set;
+
+import com.semmle.js.ast.Position;
+import com.semmle.js.ast.SourceElement;
+import com.semmle.util.files.FileUtil;
+import com.semmle.util.locations.SourceMap;
+import com.semmle.util.trap.TrapWriter;
+import com.semmle.util.trap.TrapWriter.Label;
 
 /**
  * This class handles location information; in particular, it translates locations reported by the
@@ -28,6 +30,30 @@ public class LocationManager {
     this.fileLabel = fileLabel;
     this.startLine = 1;
     this.startColumn = 1;
+  }
+
+  public LocationManager(LocationManager other) {
+    this.sourceFile = other.sourceFile;
+    this.trapWriter = other.trapWriter;
+    this.fileLabel = other.fileLabel;
+    this.startLine = other.startLine;
+    this.startColumn = other.startColumn;
+  }
+
+  /**
+   * Returns a copy of this location manager whose locations are relative to the
+   * given 1-based line and column numbers (which themselves are relative to this location manager's
+   * starting point).
+   */
+  public LocationManager startingAt(int line, int column) {
+    LocationManager copy = new LocationManager(this);
+    if (line == 1) {
+      copy.startColumn += column - 1;
+    } else {
+      copy.startLine += line - 1;
+      copy.startColumn = column;
+    }
+    return copy;
   }
 
   public File getSourceFile() {
@@ -64,8 +90,22 @@ public class LocationManager {
   }
 
   /**
+   * Creates a source map adjusted for the line/column offset configured in this location manager.
+   * <p>
+   * Note that the absolute offset returned by the source map will be incorrect and should not be relied upon,
+   * only the line and column numbers are valid.
+   */
+  public SourceMap adjustSourceMap(final SourceMap map) {
+    // This method is a placeholder for a better solution in which the location manager has a SourceMap of its own.
+    // That solution requires all users of the location manager to track absolute offsets and defer line/column calculations
+    // to the location manager's source map.
+    return SourceMap.legacyWithStartPos(map, new com.semmle.util.locations.Position(startLine, startColumn, 0));
+  }
+
+  /**
    * Emit location information for an AST node. The node's location is translated from the parser's
-   * 0-based column numbering scheme into our 1-based scheme and then emitted as a snippet location.
+   * 0-based column numbering scheme with exclusive offsets into our 1-based scheme with inclusive
+   * end-offsets and then emitted as a snippet location.
    */
   public void emitNodeLocation(SourceElement nd, Label lbl) {
     int sl = nd.getLoc().getStart().getLine(),
@@ -86,7 +126,15 @@ public class LocationManager {
     emitSnippetLocation(lbl, sl, sc, el, ec);
   }
 
-  /** Emit a relative location in the current snippet. */
+  /**
+   * Emit a relative location in the current snippet.
+   *
+   * @param lbl label to associate with the location
+   * @param sl start line (1-based)
+   * @param sc start column (1-based, inclusive)
+   * @param el end line (1-based)
+   * @param ec end column (1-based, inclusive)
+   */
   public void emitSnippetLocation(Label lbl, int sl, int sc, int el, int ec) {
     Position start = translatePosition(new Position(sl, sc, -1));
     Position end = translatePosition(new Position(el, ec, -1));

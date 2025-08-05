@@ -269,6 +269,21 @@ namespace overrides
         public override int this[int x] { get { return x; } } // overrides A2.Item
         public override event EventHandler Event; // overrides A2.Event
     }
-}
 
-// semmle-extractor-options: /r:System.Dynamic.Runtime.dll /r:System.Linq.Expressions.dll
+    class Outer<T>
+    {
+        class Inner { }
+
+        interface I6
+        {
+            void M<T>(Outer<T>.Inner x);
+        }
+
+        class A10
+        {
+            public void M<T>(Outer<T>.Inner x) { } // implements I6.M (via A11)
+        }
+
+        class A11 : A10, I6 { }
+    }
+}

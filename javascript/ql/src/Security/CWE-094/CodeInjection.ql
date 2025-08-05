@@ -4,19 +4,21 @@
  *              code execution.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.3
  * @precision high
  * @id js/code-injection
  * @tags security
  *       external/cwe/cwe-094
+ *       external/cwe/cwe-095
  *       external/cwe/cwe-079
  *       external/cwe/cwe-116
  */
 
 import javascript
-import semmle.javascript.security.dataflow.CodeInjection::CodeInjection
+import semmle.javascript.security.dataflow.CodeInjectionQuery
 import DataFlow::PathGraph
 
 from Configuration cfg, DataFlow::PathNode source, DataFlow::PathNode sink
 where cfg.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "$@ flows to here and is interpreted as code.",
-  source.getNode(), "User-provided value"
+select sink.getNode(), source, sink, sink.getNode().(Sink).getMessagePrefix() + " depends on a $@.",
+  source.getNode(), "user-provided value"

@@ -3,6 +3,7 @@
  * @description Replacing a substring with itself has no effect and may indicate a mistake.
  * @kind problem
  * @problem.severity warning
+ * @security-severity 7.8
  * @id js/identity-replacement
  * @precision very-high
  * @tags correctness
@@ -31,42 +32,46 @@ predicate matchesString(Expr e, string s) {
  */
 language[monotonicAggregates]
 predicate regExpMatchesString(RegExpTerm t, string s) {
-  // constants match themselves
-  s = t.(RegExpConstant).getValue()
-  or
-  // assertions match the empty string
+  t.isPartOfRegExpLiteral() and
   (
-    t instanceof RegExpCaret or
-    t instanceof RegExpDollar or
-    t instanceof RegExpWordBoundary or
-    t instanceof RegExpNonWordBoundary or
-    t instanceof RegExpLookahead or
-    t instanceof RegExpLookbehind
-  ) and
-  s = ""
-  or
-  // groups match their content
-  regExpMatchesString(t.(RegExpGroup).getAChild(), s)
-  or
-  // single-character classes match that character
-  exists(RegExpCharacterClass recc | recc = t and not recc.isInverted() |
-    recc.getNumChild() = 1 and
-    regExpMatchesString(recc.getChild(0), s)
-  )
-  or
-  // sequences match the concatenation of their elements
-  exists(RegExpSequence seq | seq = t |
-    s = concat(int i, RegExpTerm child |
-        child = seq.getChild(i)
-      |
-        any(string subs | regExpMatchesString(child, subs)) order by i
-      )
+    // constants match themselves
+    s = t.(RegExpConstant).getValue()
+    or
+    // assertions match the empty string
+    (
+      t instanceof RegExpCaret or
+      t instanceof RegExpDollar or
+      t instanceof RegExpWordBoundary or
+      t instanceof RegExpNonWordBoundary or
+      t instanceof RegExpLookahead or
+      t instanceof RegExpLookbehind
+    ) and
+    s = ""
+    or
+    // groups match their content
+    regExpMatchesString(t.(RegExpGroup).getAChild(), s)
+    or
+    // single-character classes match that character
+    exists(RegExpCharacterClass recc | recc = t and not recc.isInverted() |
+      recc.getNumChild() = 1 and
+      regExpMatchesString(recc.getChild(0), s)
+    )
+    or
+    // sequences match the concatenation of their elements
+    exists(RegExpSequence seq | seq = t |
+      s =
+        concat(int i, RegExpTerm child |
+          child = seq.getChild(i)
+        |
+          any(string subs | regExpMatchesString(child, subs)) order by i
+        )
+    )
   )
 }
 
 from MethodCallExpr repl, string s, string friendly
 where
-  repl.getMethodName() = "replace" and
+  repl.getMethodName() = ["replace", "replaceAll"] and
   matchesString(repl.getArgument(0), s) and
   repl.getArgument(1).getStringValue() = s and
   (if s = "" then friendly = "the empty string" else friendly = "'" + s + "'")

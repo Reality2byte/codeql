@@ -138,7 +138,6 @@ public class ViableCallable
         d.Event += (EventHandler<string>)(() => { });
         d.Event -= (EventHandler<string>)(() => { });
 
-
         // Viable callables: C8.M3(), C9.M3()
         d = Mock<C8>();
         d.M3();
@@ -428,17 +427,151 @@ public class C15
 abstract class C16<T1, T2>
 {
     public virtual T2 M1(T1 x) => throw null;
-    protected virtual T M2<T>(Func<T> x) => x();
+    public virtual T M2<T>(Func<T> x) => x();
 }
 
 class C17 : C16<string, int>
 {
-    void M(int i)
+    void M1(int i)
     {
         // Viable callables: C16<string, int>.M1()
         this.M1("");
 
-        // Viable callables: C16<string, int>.M2<int>()
+        // Viable callables: C17.M2<int>()
         this.M2(() => i);
+    }
+
+    public override T M2<T>(Func<T> x) => x();
+
+    void M3<T>(T t, string s) where T : C17
+    {
+        // Viable callable: C17.M2()
+        t.M2(() => s);
+    }
+
+    void M4<T>(C16<T, int> c) where T : struct
+    {
+        // Viable callable: C16.M2() [also reports C17.M2(); false positive]
+        c.M2(() => default(T));
+    }
+
+    void M5<T>(C16<T, int> c) where T : class
+    {
+        // Viable callables: {C16,C17}.M1()
+        c.M2(() => default(T));
+    }
+}
+
+interface I2
+{
+    void M1();
+    void M2() => throw null;
+}
+
+class C18 : I2
+{
+    public void M1() { }
+
+    void Run(I2 i)
+    {
+        // Viable callables: C18.M1()
+        i.M1();
+
+        // Viable callables: I2.M2()
+        i.M2();
+    }
+}
+
+class C19
+{
+    public static C19 operator +(C19 x, C19 y) => throw null;
+    public static C19 operator checked +(C19 x, C19 y) => throw null;
+    public static explicit operator int(C19 x) => throw null;
+    public static explicit operator checked int(C19 x) => throw null;
+
+    void Run(C19 c)
+    {
+        // Viable callables: C19.op_Addition()
+        var c1 = c + c;
+
+        // Viable callables: C19.op_CheckedAddition()
+        var c2 = checked(c + c);
+
+        // Viable callables: C19.op_Explicit()
+        var n1 = (int)c;
+
+        // Viable callables: C19.op_CheckedExplicit()
+        var n2 = checked((int)c);
+    }
+}
+
+public interface I3<T> where T : I3<T>
+{
+    static abstract T operator +(T x, T y);
+    static abstract T operator checked +(T x, T y);
+
+    static abstract T operator -(T x, T y);
+    static virtual T operator checked -(T x, T y) => throw null;
+
+    static virtual T operator *(T x, T y) => throw null;
+    static virtual T operator checked *(T x, T y) => throw null;
+
+    static virtual T operator /(T x, T y) => throw null;
+    static virtual T operator checked /(T x, T y) => throw null;
+
+    void M11();
+
+    virtual void M12() => throw null;
+
+    virtual void M13() => throw null;
+}
+
+public class C20 : I3<C20>
+{
+    public static C20 operator +(C20 x, C20 y) => throw null;
+    public static C20 operator checked +(C20 x, C20 y) => throw null;
+
+    public static C20 operator -(C20 x, C20 y) => throw null;
+
+    public static C20 operator /(C20 x, C20 y) => throw null;
+    public static C20 operator checked /(C20 x, C20 y) => throw null;
+
+    public void M11() { }
+    public void M12() { }
+
+    void Run<T>(T c) where T : I3<T>
+    {
+        // Viable callables: C20.op_Addition()
+        var c1 = c + c;
+
+        // Viable callables: C20.op_CheckedAddition()
+        var c2 = checked(c + c);
+
+        // Viable callables: C20.op_Subtraction()
+        var c3 = c - c;
+
+        // Viable callables: I3<C20>.op_CheckedSubtraction().
+        var c4 = checked(c - c);
+
+        // Viable callables: I3<C20>.op_Multiply().
+        var c5 = c * c;
+
+        // Viable callables: I3<C20>.op_CheckedMultiply().
+        var c6 = checked(c * c);
+
+        // Viable callables: {C20,I3<C20>}.op_Division()
+        var c7 = c / c;
+
+        // Viable callables: {C20,I3<C20>}.op_CheckedDivision()
+        var c8 = checked(c / c);
+
+        // Viable callables: C20.M11.
+        c.M11();
+
+        // Viable callables: {C20,I3<C20>}.M12().
+        c.M12();
+
+        // Viable callables: I3<C20>.M13()
+        c.M13();
     }
 }

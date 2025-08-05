@@ -5,6 +5,7 @@
  *              looping.
  * @kind problem
  * @problem.severity warning
+ * @security-severity 7.5
  * @precision medium
  * @id java/unreachable-exit-in-loop
  * @tags security
@@ -25,7 +26,7 @@ predicate loopCondition(LoopStmt loop, Expr cond, boolean polarity) {
     ifstmt.getEnclosingStmt*() = loop.getBody() and
     ifstmt.getCondition() = cond and
     (
-      exit.(BreakStmt).(JumpStmt).getTarget() = loop or
+      exit.(BreakStmt).getTarget() = loop or
       exit.(ReturnStmt).getEnclosingStmt*() = loop.getBody()
     ) and
     (
@@ -47,8 +48,6 @@ predicate subCondition(Expr cond, Expr subcond, boolean negated) {
   subCondition(cond.(AndLogicalExpr).getAnOperand(), subcond, negated)
   or
   subCondition(cond.(OrLogicalExpr).getAnOperand(), subcond, negated)
-  or
-  subCondition(cond.(ParExpr).getExpr(), subcond, negated)
   or
   subCondition(cond.(LogNotExpr).getExpr(), subcond, negated.booleanNot())
 }

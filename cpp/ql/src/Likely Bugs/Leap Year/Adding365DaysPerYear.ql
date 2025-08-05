@@ -8,14 +8,16 @@
  * @id cpp/leap-year/adding-365-days-per-year
  * @precision medium
  * @tags leap-year
+ *       correctness
  */
 
 import cpp
 import LeapYear
-import semmle.code.cpp.dataflow.DataFlow
 
-from Expr source, Expr sink, PossibleYearArithmeticOperationCheckConfiguration config
-where config.hasFlow(DataFlow::exprNode(source), DataFlow::exprNode(sink))
+from Expr source, Expr sink
+where
+  PossibleYearArithmeticOperationCheckFlow::flow(DataFlow::exprNode(source),
+    DataFlow::exprNode(sink))
 select sink,
-  "This arithmetic operation $@ uses a constant value of 365 ends up modifying the date/time located at $@, without considering leap year scenarios.",
-  source, source.toString(), sink, sink.toString()
+  "An arithmetic operation $@ that uses a constant value of 365 ends up modifying this date/time, without considering leap year scenarios.",
+  source, source.toString()

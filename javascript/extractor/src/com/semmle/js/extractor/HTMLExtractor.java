@@ -1,24 +1,192 @@
 package com.semmle.js.extractor;
 
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import com.semmle.extractor.html.HtmlPopulator;
+import com.semmle.js.extractor.ExtractorConfig.ECMAVersion;
 import com.semmle.js.extractor.ExtractorConfig.Platform;
 import com.semmle.js.extractor.ExtractorConfig.SourceType;
 import com.semmle.js.parser.ParseError;
+import com.semmle.util.data.Pair;
 import com.semmle.util.data.StringUtil;
+import com.semmle.util.io.WholeIO;
+import com.semmle.util.locations.Position;
 import com.semmle.util.trap.TrapWriter;
 import com.semmle.util.trap.TrapWriter.Label;
-import java.util.regex.Pattern;
+
 import net.htmlparser.jericho.Attribute;
 import net.htmlparser.jericho.Attributes;
-import net.htmlparser.jericho.CharacterReference;
 import net.htmlparser.jericho.Element;
 import net.htmlparser.jericho.HTMLElementName;
-import net.htmlparser.jericho.RowColumnVector;
 import net.htmlparser.jericho.Segment;
 import net.htmlparser.jericho.Source;
-import net.htmlparser.jericho.StartTagType;
 
 /** Extractor for handling HTML and XHTML files. */
 public class HTMLExtractor implements IExtractor {
+  private ParseResultInfo locInfo = new ParseResultInfo(0, 0, Collections.emptyList());
+
+  private class JavaScriptHTMLElementHandler implements HtmlPopulator.ElementHandler {
+    private final ScopeManager scopeManager;
+    private final TextualExtractor textualExtractor;
+
+    public JavaScriptHTMLElementHandler(TextualExtractor textualExtractor) {
+      this.textualExtractor = textualExtractor;
+
+      this.scopeManager =
+          new ScopeManager(textualExtractor.getTrapwriter(), config.getEcmaVersion(),
+            ScopeManager.FileKind.TEMPLATE);
+    }
+
+    /*
+     * Extract all JavaScript snippets appearing in (in-line) script elements and as
+     * attribute values.
+     */
+    @Override
+    public void handleElement(Element elt, HtmlPopulator.Context context) {
+      if (elt.getName().equals(HTMLElementName.SCRIPT)) {
+        SourceType sourceType = getScriptSourceType(elt, textualExtractor.getExtractedFile());
+        if (sourceType != null) {
+          // Jericho sometimes misparses empty elements, which will show up as start tags
+          // ending in "/"; we manually exclude these cases to avoid spurious syntax
+          // errors
+          if (elt.getStartTag().getTagContent().toString().trim().endsWith("/")) return;
+
+          Segment content = elt.getContent();
+          String source = content.toString();
+          boolean isTypeScript = isTypeScriptTag(elt);
+
+          /*
+           * Script blocks in XHTML files may wrap (parts of) their code inside CDATA
+           * sections. We need to unwrap them in order not to confuse the JavaScript
+           * parser.
+           *
+           * Note that CDATA sections do not nest, so they can be detected by a regular
+           * expression.
+           *
+           * In order to preserve position information, we replace the CDATA section
+           * markers with an equivalent number of whitespace characters. This will yield
+           * surprising results for CDATA sections inside string literals, but those are
+           * likely to be rare.
+           */
+          source = source.replace("<![CDATA[", "         ").replace("]]>", "   ");
+          if (!source.trim().isEmpty()) {
+            extractSnippet(
+                TopLevelKind.INLINE_SCRIPT,
+                config.withSourceType(sourceType),
+                scopeManager,
+                textualExtractor,
+                source,
+                content.getBegin(),
+                isTypeScript,
+                context.getNodeLabel(elt));
+          }
+        }
+      } else {
+        Attributes attributes = elt.getAttributes();
+        boolean attributesAreExtracted = shouldExtractAttributes(elt);
+        // attributes can be null for directives
+        if (attributes != null)
+          for (Attribute attr : attributes) {
+            // ignore empty attributes
+            if (attr.getValue() == null || attr.getValue().isEmpty()) continue;
+
+            // If attributes are not extracted we can't use the attribute as the parent node.
+            // In this case, use the enclosing element as the node.
+            Segment parentSegment = attributesAreExtracted ? attr : elt;
+
+            extractTemplateTags(
+                textualExtractor,
+                attr.getSource(),
+                attr.getBegin(),
+                attr.getEnd(),
+                () -> context.getNodeLabel(parentSegment));
+
+            String source = attr.getValue();
+            int valueStart = attr.getValueSegment().getBegin();
+            if (JS_ATTRIBUTE.matcher(attr.getName()).matches()) {
+              extractSnippet(
+                  TopLevelKind.EVENT_HANDLER,
+                  config,
+                  scopeManager,
+                  textualExtractor,
+                  source,
+                  valueStart,
+                  false /* isTypeScript */,
+                  context.getNodeLabel(parentSegment));
+            } else if (isAngularTemplateAttributeName(attr.getName())) {
+              // For an attribute *ngFor="let var of EXPR", start parsing at EXPR
+              int offset = 0;
+              if (attr.getName().equals("*ngFor")) {
+                Matcher m = ANGULAR_FOR_LOOP_DECL.matcher(source);
+                if (m.matches()) {
+                  String expr = m.group(2);
+                  offset = m.end(2) - expr.length();
+                  source = expr;
+                }
+              }
+              extractSnippet(
+                  TopLevelKind.ANGULAR_STYLE_TEMPLATE,
+                  config.withSourceType(SourceType.ANGULAR_STYLE_TEMPLATE),
+                  scopeManager,
+                  textualExtractor,
+                  source,
+                  valueStart + offset,
+                  false /* isTypeScript */,
+                  context.getNodeLabel(parentSegment));
+            } else if (source.startsWith("javascript:")) {
+              source = source.substring(11);
+              extractSnippet(
+                  TopLevelKind.JAVASCRIPT_URL,
+                  config,
+                  scopeManager,
+                  textualExtractor,
+                  source,
+                  valueStart + 11,
+                  false /* isTypeScript */,
+                  context.getNodeLabel(parentSegment));
+            }
+          }
+      }
+    }
+
+    @Override
+    public void handleText(
+        Source src, int textBegin, int textEnd, Label parentLabel, boolean isCData) {
+      extractTemplateTags(textualExtractor, src, textBegin, textEnd, () -> parentLabel);
+    }
+
+    @Override
+    public boolean shouldExtractAttributes(Element element) {
+      Attributes attributes = element.getAttributes();
+      if (attributes == null) return false;
+      for (Attribute attr : attributes) {
+        if (!VALID_ATTRIBUTE_NAME.matcher(attr.getName()).matches()) {
+          return false;
+        }
+      }
+      return true;
+    }
+  }
+
+  private boolean isAngularTemplateAttributeName(String name) {
+    return name.startsWith("[") && name.endsWith("]")
+        || name.startsWith("(") && name.endsWith(")")
+        || name.startsWith("*ng");
+  }
+
+  private static final Pattern ANGULAR_FOR_LOOP_DECL =
+      Pattern.compile("^ *let +(\\w+) +of(?: +|(?!\\w))(.*)");
+
+  private static final Pattern VALID_ATTRIBUTE_NAME =
+      Pattern.compile("\\*?\\[?\\(?[\\w:_\\-]+\\]?\\)?");
+
   /** List of HTML attributes whose value is interpreted as JavaScript. */
   private static final Pattern JS_ATTRIBUTE =
       Pattern.compile(
@@ -26,143 +194,111 @@ public class HTMLExtractor implements IExtractor {
           Pattern.CASE_INSENSITIVE);
 
   private final ExtractorConfig config;
+  private final ExtractorState state;
+  private final boolean isEmbedded;
 
-  public HTMLExtractor(ExtractorConfig config) {
+  public HTMLExtractor(ExtractorConfig config, ExtractorState state, boolean isEmbedded) {
     this.config = config.withPlatform(Platform.WEB);
+    this.state = state;
+    this.isEmbedded = isEmbedded;
+  }
+
+  public HTMLExtractor(ExtractorConfig config, ExtractorState state) {
+    this(config, state, false);
+  }
+
+  /** Creates an HTML extractor for embedded HTML snippets. */
+  public static HTMLExtractor forEmbeddedHtml(ExtractorConfig config) {
+    return new HTMLExtractor(config, null, true);
   }
 
   @Override
-  public LoCInfo extract(TextualExtractor textualExtractor) {
-    LoCInfo result = new LoCInfo(0, 0);
+  public ParseResultInfo extract(TextualExtractor textualExtractor) throws IOException {
+    return extractEx(textualExtractor).snd();
+  }
 
-    Source src = new Source(textualExtractor.getSource());
-    src.setLogger(null);
-    ScopeManager scopeManager =
-        new ScopeManager(textualExtractor.getTrapwriter(), config.getEcmaVersion());
+  public Pair<List<Label>, ParseResultInfo> extractEx(TextualExtractor textualExtractor) {
+    // Angular templates contain attribute names that are not valid HTML/XML, such
+    // as [foo], (foo), [(foo)], and *foo.
+    // Allow a large number of errors in attribute names, so the Jericho parser does
+    // not give up.
+    Attributes.setDefaultMaxErrorCount(100);
+    JavaScriptHTMLElementHandler eltHandler = new JavaScriptHTMLElementHandler(textualExtractor);
 
     LocationManager locationManager = textualExtractor.getLocationManager();
+    HtmlPopulator extractor =
+        new HtmlPopulator(
+            this.config.getHtmlHandling(),
+            textualExtractor.getSource(),
+            textualExtractor.getTrapwriter(),
+            locationManager.getFileLabel());
 
-    /*
-     * Extract all JavaScript snippets appearing in (in-line) script elements and
-     * as attribute values.
-     */
-    for (Element elt : src.getAllElements()) {
-      LoCInfo snippetLoC = null;
-      if (elt.getName().equals(HTMLElementName.SCRIPT)) {
-        SourceType sourceType = getScriptSourceType(elt);
-        if (sourceType != null) {
-          // Jericho sometimes misparses empty elements, which will show up as start tags
-          // ending in "/"; we manually exclude these cases to avoid spurious syntax errors
-          if (elt.getStartTag().getTagContent().toString().trim().endsWith("/")) continue;
-
-          Segment content = elt.getContent();
-          String source = content.toString();
-
-          /*
-           * Script blocks in XHTML files may wrap (parts of) their code inside CDATA sections.
-           * We need to unwrap them in order not to confuse the JavaScript parser.
-           *
-           * Note that CDATA sections do not nest, so they can be detected by a regular expression.
-           *
-           * In order to preserve position information, we replace the CDATA section markers with
-           * an equivalent number of whitespace characters. This will yield surprising results
-           * for CDATA sections inside string literals, but those are likely to be rare.
-           */
-          source = source.replace("<![CDATA[", "         ").replace("]]>", "   ");
-          if (!source.trim().isEmpty()) {
-            RowColumnVector contentStart = content.getRowColumnVector();
-            snippetLoC =
-                extractSnippet(
-                    1,
-                    config.withSourceType(sourceType),
-                    scopeManager,
-                    textualExtractor,
-                    source,
-                    contentStart.getRow(),
-                    contentStart.getColumn());
-          }
-        }
-      } else {
-        Attributes attributes = elt.getAttributes();
-        // attributes can be null for directives
-        if (attributes != null)
-          for (Attribute attr : attributes) {
-            // ignore empty attributes
-            if (attr.getValue() == null || attr.getValue().isEmpty()) continue;
-
-            String source = attr.getValue();
-            RowColumnVector valueStart = attr.getValueSegment().getRowColumnVector();
-            if (JS_ATTRIBUTE.matcher(attr.getName()).matches()) {
-              snippetLoC =
-                  extractSnippet(
-                      2,
-                      config,
-                      scopeManager,
-                      textualExtractor,
-                      source,
-                      valueStart.getRow(),
-                      valueStart.getColumn());
-            } else if (source.startsWith("javascript:")) {
-              source = source.substring(11);
-              snippetLoC =
-                  extractSnippet(
-                      3,
-                      config,
-                      scopeManager,
-                      textualExtractor,
-                      source,
-                      valueStart.getRow(),
-                      valueStart.getColumn() + 11);
-            }
-          }
-      }
-
-      if (snippetLoC != null) result.add(snippetLoC);
+    // For efficiency, avoid building the source map if not needed (i.e. for plain
+    // HTML files).
+    if (textualExtractor.hasNonTrivialSourceMap()) {
+      extractor.setSourceMap(textualExtractor.getSourceMap());
     }
 
-    // extract HTML elements if necessary.
-    if (config.getHtmlHandling().extractElements()) {
-      extractChildElements(src, locationManager);
+    List<Label> rootNodes = extractor.doit(eltHandler);
 
-      for (Element elt : src.getAllElements()) {
-        if (isPlainElement(elt)) {
-          extractChildElements(elt, locationManager);
-          extractAttributes(elt, locationManager);
-        }
-      }
-    }
-
-    return result;
+    return Pair.make(rootNodes, locInfo);
   }
 
   /**
    * Deduce the {@link SourceType} with which the given <code>script</code> element should be
    * extracted, returning <code>null</code> if it cannot be determined.
    */
-  private SourceType getScriptSourceType(Element script) {
+  private SourceType getScriptSourceType(Element script, File file) {
     String scriptType = getAttributeValueLC(script, "type");
-    String scriptLanguage = getAttributeValueLC(script, "language");
+    String scriptLanguage = getScriptLanguage(script);
+
+    SourceType fallbackSourceType = config.getSourceType();
+    if (file.getName().endsWith(".vue")) {
+      fallbackSourceType = SourceType.MODULE;
+    }
+
+    if (isTypeScriptTag(script)) return fallbackSourceType;
 
     // if `type` and `language` are both either missing, contain the
-    // string "javascript", or if `type` is the string "text/jsx", this is a plain script
+    // string "javascript", or if `type` is the string "text/jsx", this is a plain
+    // script
     if ((scriptType == null || scriptType.contains("javascript") || "text/jsx".equals(scriptType))
         && (scriptLanguage == null || scriptLanguage.contains("javascript")))
       // use default source type
-      return config.getSourceType();
+      return fallbackSourceType;
 
-    // if `type` is "text/babel", the source type depends on the `data-plugins` attribute
+    // if `type` is "text/babel", the source type depends on the `data-plugins`
+    // attribute
     if ("text/babel".equals(scriptType)) {
       String plugins = getAttributeValueLC(script, "data-plugins");
       if (plugins != null && plugins.contains("transform-es2015-modules-umd")) {
         return SourceType.MODULE;
       }
-      return config.getSourceType();
+      return fallbackSourceType;
     }
 
     // if `type` is "module", extract as module
     if ("module".equals(scriptType)) return SourceType.MODULE;
 
     return null;
+  }
+
+  private String getScriptLanguage(Element script) {
+    String scriptLanguage = getAttributeValueLC(script, "language");
+
+    if (scriptLanguage == null) { // Vue templates use 'lang' instead of 'language'.
+      scriptLanguage = getAttributeValueLC(script, "lang");
+    }
+    return scriptLanguage;
+  }
+
+  private boolean isTypeScriptTag(Element script) {
+    String language = getScriptLanguage(script);
+    if ("ts".equals(language) || "tsx".equals(language) || "typescript".equals(language))
+      return true;
+    String type = getAttributeValueLC(script, "type");
+    if (type != null && type.contains("typescript")) return true;
+    return false;
   }
 
   /**
@@ -174,192 +310,143 @@ public class HTMLExtractor implements IExtractor {
     return val == null ? val : StringUtil.lc(val);
   }
 
-  private LoCInfo extractSnippet(
-      int toplevelKind,
+  private void extractSnippet(
+      TopLevelKind toplevelKind,
       ExtractorConfig config,
       ScopeManager scopeManager,
       TextualExtractor textualExtractor,
       String source,
-      int line,
-      int column) {
-    TrapWriter trapwriter = textualExtractor.getTrapwriter();
+      int offset,
+      boolean isTypeScript,
+      Label parentLabel) {
+    TrapWriter trapWriter = textualExtractor.getTrapwriter();
     LocationManager locationManager = textualExtractor.getLocationManager();
+    // JavaScript AST extraction does not currently support source maps, so just set
+    // line/column numbers on the location manager.
+    Position pos = textualExtractor.getSourceMap().getStart(offset);
     LocationManager scriptLocationManager =
-        new LocationManager(
-            locationManager.getSourceFile(), trapwriter, locationManager.getFileLabel());
-    scriptLocationManager.setStart(line, column);
+        locationManager.startingAt(pos.getLine(), pos.getColumn());
+    if (isTypeScript) {
+      if (isEmbedded) {
+        return; // Do not extract files from HTML embedded in other files.
+      }
+      Path file = textualExtractor.getExtractedFile().toPath();
+      FileSnippet snippet =
+          new FileSnippet(
+              file, pos.getLine(), pos.getColumn(), toplevelKind, config.getSourceType());
+      VirtualSourceRoot vroot = config.getVirtualSourceRoot();
+      // Vue files are special in that they can be imported as modules, and may only
+      // contain one <script> tag.
+      // For .vue files we omit the usual snippet decoration to ensure the TypeScript
+      // compiler can find it.
+      Path virtualFile =
+          file.getFileName().toString().endsWith(".vue")
+              ? vroot.toVirtualFile(file.resolveSibling(file.getFileName() + ".ts"))
+              : vroot.getVirtualFileForSnippet(snippet, ".ts");
+      if (virtualFile != null) {
+        virtualFile = virtualFile.toAbsolutePath().normalize();
+        synchronized (vroot.getLock()) {
+          new WholeIO().strictwrite(virtualFile, source);
+        }
+        state.getSnippets().put(virtualFile, snippet);
+      }
+      Label topLevelLabel =
+          ASTExtractor.makeTopLevelLabel(
+              textualExtractor.getTrapwriter(),
+              scriptLocationManager.getFileLabel(),
+              scriptLocationManager.getStartLine(),
+              scriptLocationManager.getStartColumn());
+      emitTopLevelXmlNodeBinding(parentLabel, topLevelLabel, trapWriter);
+      // Note: LoC info is accounted for later, so not added here.
+      return;
+    }
     JSExtractor extractor = new JSExtractor(config);
     try {
       TextualExtractor tx =
-          new TextualExtractor(trapwriter, scriptLocationManager, source, config.getExtractLines());
-      return extractor.extract(tx, source, toplevelKind, scopeManager).snd();
+          new TextualExtractor(
+              trapWriter,
+              scriptLocationManager,
+              source,
+              config.getExtractLines(),
+              textualExtractor.getMetrics(),
+              textualExtractor.getExtractedFile());
+      Pair<Label, ParseResultInfo> result = extractor.extract(tx, source, toplevelKind, scopeManager);
+      Label toplevelLabel = result.fst();
+      if (toplevelLabel != null) { // can be null when script ends up being parsed as JSON
+        emitTopLevelXmlNodeBinding(parentLabel, toplevelLabel, trapWriter);
+      }
+      locInfo.add(result.snd());
     } catch (ParseError e) {
       e.setPosition(scriptLocationManager.translatePosition(e.getPosition()));
       throw e.asUserError();
     }
   }
 
-  /**
-   * Is {@code elt} a plain HTML element (as opposed to a doctype declaration, comment, processing
-   * instruction, etc.)?
-   */
-  private boolean isPlainElement(Element elt) {
-    return elt.getStartTag().getTagType() == StartTagType.NORMAL;
+  private void emitTopLevelXmlNodeBinding(
+      Label htmlNodeLabel, Label topLevelLabel, TrapWriter writer) {
+    writer.addTuple("toplevel_parent_xml_node", topLevelLabel, htmlNodeLabel);
   }
 
-  /** Is {@code elt} a CDATA element ? */
-  private boolean isCDataElement(Element elt) {
-    return elt.getStartTag().getTagType() == StartTagType.CDATA_SECTION;
-  }
+  private void extractTemplateTags(
+      TextualExtractor textualExtractor,
+      Source root,
+      int start,
+      int end,
+      Supplier<Label> parentLabel) {
+    if (start >= end) return;
+    if (isEmbedded) return; // Do not extract template tags for HTML snippets embedded in a JS file
 
-  /** Is {@code elt} an HTML comment? */
-  private boolean isComment(Element elt) {
-    return elt.getStartTag().getTagType() == StartTagType.COMMENT;
-  }
-
-  /**
-   * Populate the {@code xmlElements} relation recording information about all child elements of
-   * {@code parent}, which is either an {@link Element} or a {@link Source} (representing the HTML
-   * file itself).
-   */
-  private void extractChildElements(Segment parent, LocationManager locationManager) {
-    TrapWriter trapWriter = locationManager.getTrapWriter();
-    Label fileLabel = locationManager.getFileLabel();
-    Label parentLabel = parent instanceof Source ? fileLabel : trapWriter.localID(parent);
-    int childIndex = 0;
-    Source source = parent.getSource();
-    int contentStart =
-        parent instanceof Element ? ((Element) parent).getStartTag().getEnd() : parent.getBegin();
-    int contentEnd;
-    if (parent instanceof Element && ((Element) parent).getEndTag() != null)
-      contentEnd = ((Element) parent).getEndTag().getBegin();
-    else contentEnd = parent.getEnd();
-    int prevChildEnd = contentStart;
-    for (Element child : parent.getChildElements()) {
-      childIndex +=
-          emitXmlChars(
-              source,
-              prevChildEnd,
-              child.getBegin(),
-              parentLabel,
-              childIndex,
-              false,
-              fileLabel,
-              locationManager);
-
-      if (isCDataElement(child)) {
-        // treat CDATA sections as text
-        childIndex +=
-            emitXmlChars(
-                source,
-                child.getBegin() + "<![CDATA[".length(),
-                child.getEnd() - "]]>".length(),
-                parentLabel,
-                childIndex,
-                true,
-                fileLabel,
-                locationManager);
+    TrapWriter trapwriter = textualExtractor.getTrapwriter();
+    Matcher m =
+        TemplateEngines.TEMPLATE_TAGS.matcher(textualExtractor.getSource()).region(start, end);
+    while (m.find()) {
+      int startOffset = m.start();
+      int endOffset = m.end();
+      if (endOffset - startOffset > 10_000) {
+        // Do not extract long template strings as they're likely to be FP matches and
+        // unlikely to be parsed correctly.
+        continue;
       }
 
-      if (isPlainElement(child)) {
-        String childName = child.getName();
-        Label childLabel = trapWriter.localID(child);
-        trapWriter.addTuple(
-            "xmlElements", childLabel, childName, parentLabel, childIndex++, fileLabel);
-        emitLocation(child, childLabel, locationManager);
+      // Emit an entity for the template tag
+      Label lbl = trapwriter.freshLabel();
+      String rawText = m.group();
+      trapwriter.addTuple("template_placeholder_tag_info", lbl, parentLabel.get(), rawText);
+
+      // Emit location entity
+      Label locationLbl = TemplateEngines.makeLocation(textualExtractor, startOffset, endOffset);
+      trapwriter.addTuple("hasLocation", lbl, locationLbl);
+
+      // Parse the contents as a template expression, if the delimiter expects an expression.
+      Matcher delimMatcher = TemplateEngines.TEMPLATE_EXPR_OPENING_TAG.matcher(rawText);
+      if (delimMatcher.find()) {
+        // The body of the template tag is stored in the first capture group of each pattern
+        int bodyGroup = getNonNullCaptureGroup(m);
+        if (bodyGroup != -1) {
+          extractSnippet(
+              TopLevelKind.ANGULAR_STYLE_TEMPLATE,
+              config.withSourceType(SourceType.ANGULAR_STYLE_TEMPLATE),
+              new ScopeManager(textualExtractor.getTrapwriter(), ECMAVersion.ECMA2020, ScopeManager.FileKind.TEMPLATE),
+              textualExtractor,
+              m.group(bodyGroup),
+              m.start(bodyGroup),
+              false /* isTypeScript */,
+              lbl);
+        }
       }
+    }
+  }
 
-      if (config.getHtmlHandling().extractComments() && isComment(child)) {
-        Label childLabel = trapWriter.localID(child);
-        trapWriter.addTuple("xmlComments", childLabel, child.toString(), parentLabel, fileLabel);
-        emitLocation(child, childLabel, locationManager);
+  /**
+   * Returns the index of the first capture group that captured something (apart from group zero
+   * which is the whole match).
+   */
+  private static int getNonNullCaptureGroup(Matcher m) {
+    for (int i = 1; i <= m.groupCount(); ++i) {
+      if (m.group(i) != null) {
+        return i;
       }
-
-      prevChildEnd = child.getEnd();
     }
-    emitXmlChars(
-        source,
-        prevChildEnd,
-        contentEnd,
-        parentLabel,
-        childIndex,
-        false,
-        fileLabel,
-        locationManager);
-  }
-
-  /**
-   * Populate the {@code xmlAttrs} relation recording information about all attributes of {@code
-   * elt}.
-   */
-  private void extractAttributes(Element elt, LocationManager locationManager) {
-    TrapWriter trapWriter = locationManager.getTrapWriter();
-    Label fileLabel = locationManager.getFileLabel();
-    Label eltLabel = trapWriter.localID(elt);
-    Attributes attributes = elt.getAttributes();
-    // attributes can be null for directives
-    if (attributes == null) return;
-    int i = 0;
-    for (Attribute attr : attributes) {
-      String attrName = attr.getName();
-      String attrValue = attr.getValue() == null ? "" : attr.getValue();
-      Label attrLabel = trapWriter.localID(attr);
-      trapWriter.addTuple("xmlAttrs", attrLabel, eltLabel, attrName, attrValue, i++, fileLabel);
-      emitLocation(attr, attrLabel, locationManager);
-    }
-  }
-
-  /**
-   * Record the location of {@code s}, which is either an {@link Element} or an {@code Attribute}.
-   */
-  private void emitLocation(Segment s, Label label, LocationManager locationManager) {
-    TrapWriter trapWriter = locationManager.getTrapWriter();
-    Source src = s.getSource();
-    int so = s.getBegin(), eo = s.getEnd() - 1;
-    int sl = src.getRow(so), sc = src.getColumn(so);
-    int el = src.getRow(eo), ec = src.getColumn(eo);
-    Label loc = locationManager.emitLocationsDefault(sl, sc, el, ec);
-    trapWriter.addTuple("xmllocations", label, loc);
-  }
-
-  /**
-   * If {@code textEnd} is greater than {@code textBegin}, extract all characters in that range as
-   * HTML text, populating {@code xmlChars} and make it the {@code i}th child of {@code
-   * parentLabel}.
-   *
-   * @return 1 if text was extractod, 0 otherwise
-   */
-  private int emitXmlChars(
-      Source src,
-      int textBegin,
-      int textEnd,
-      Label parentLabel,
-      int id,
-      boolean isCData,
-      Label fileLabel,
-      LocationManager locationManager) {
-    if (!config.getHtmlHandling().extractText()) {
-      return 0;
-    }
-    if (textBegin >= textEnd) {
-      return 0;
-    }
-    TrapWriter trapWriter = locationManager.getTrapWriter();
-    Segment s = new Segment(src, textBegin, textEnd);
-
-    int so = s.getBegin(), eo = s.getEnd() - 1;
-    String rawText = s.toString();
-    if (!isCData) {
-      // expand entities. Note that `rawText` no longer spans the start/end region.
-      rawText = CharacterReference.decode(rawText, false);
-    }
-    Label label = trapWriter.freshLabel();
-    trapWriter.addTuple("xmlChars", label, rawText, parentLabel, id, isCData ? 1 : 0, fileLabel);
-    int sl = src.getRow(so), sc = src.getColumn(so);
-    int el = src.getRow(eo), ec = src.getColumn(eo);
-    Label loc = locationManager.emitLocationsDefault(sl, sc, el, ec);
-    trapWriter.addTuple("xmllocations", label, loc);
-
-    return 1;
+    return -1;
   }
 }

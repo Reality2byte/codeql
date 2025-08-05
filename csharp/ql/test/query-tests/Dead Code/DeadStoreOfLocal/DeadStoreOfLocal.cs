@@ -194,7 +194,7 @@ public class Captured
 
     void M2()
     {
-        var x = M6(); // BAD
+        var x = M6(); // BAD [FALSE NEGATIVE]
         Action a = () =>
         {
             x = 1; // GOOD
@@ -208,7 +208,7 @@ public class Captured
         int x;
         Action a = () =>
         {
-            x = 1; // BAD
+            x = 1; // BAD [FALSE NEGATIVE]
         };
         a();
     }
@@ -259,7 +259,7 @@ public class Captured
         fn(() =>
         {
             var x = y;  // BAD: Dead store in lambda
-        return 0;
+            return 0;
         });
     }
 
@@ -274,6 +274,17 @@ public class Captured
     void M9()
     {
         A();
+    }
+
+    void M10(bool b)
+    {
+        var x = ""; // GOOD
+        Action action;
+        if (b)
+            action = () => System.Console.WriteLine(x);
+        else
+            action = () => { };
+        action();
     }
 }
 
@@ -389,6 +400,20 @@ class Initializers
             return s;
         return null;
     }
+
+    string M8()
+    {
+        string s = default; // "GOOD"
+        s = "";
+        return s;
+    }
+
+    string M9()
+    {
+        var s = (string)null; // "GOOD"
+        s = "";
+        return s;
+    }
 }
 
 class Anonymous
@@ -423,5 +448,29 @@ class Finally
             i = 1; // GOOD
         }
         return i;
+    }
+}
+
+public static class AnonymousVariable
+{
+    public static int Count<T>(this IEnumerable<T> items)
+    {
+        int count = 0;
+        foreach (var _ in items) // GOOD
+            count++;
+        return count;
+    }
+}
+
+public static class Using
+{
+    public static void M()
+    {
+        using var x = new System.IO.FileStream("", System.IO.FileMode.Open); // GOOD
+        using var _ = new System.IO.FileStream("", System.IO.FileMode.Open); // GOOD
+
+        using (var y = new System.IO.FileStream("", System.IO.FileMode.Open)) // BAD
+        {
+        }
     }
 }

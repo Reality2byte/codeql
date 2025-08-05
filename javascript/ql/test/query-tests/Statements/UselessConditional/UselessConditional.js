@@ -79,7 +79,7 @@ async function awaitFlow(){
 
     function f3(x) {
         (function(){
-            x || y // NOT OK
+            x || y // NOT OK, but whitelisted
         });
     }
     f3(true);
@@ -177,4 +177,16 @@ async function awaitFlow(){
 	}
 });
 
-// semmle-extractor-options: --experimental
+(function() {
+    function outer(x) {
+        addEventListener("click", () => {
+            if (!x && something()) { // NOT OK, but whitelisted
+                something();
+            }
+        });
+    }
+    function inner() {
+        outer(); // Omit parameter
+    }
+    inner();
+});

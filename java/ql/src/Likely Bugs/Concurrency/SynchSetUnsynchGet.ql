@@ -22,11 +22,9 @@ import java
  * (for static methods) or a `synchronized(this){...}` block (for instance methods).
  */
 predicate isSynchronizedByBlock(Method m) {
-  exists(SynchronizedStmt sync, Expr on |
-    sync = m.getBody().getAChild*() and on = sync.getExpr().getProperExpr()
-  |
+  exists(SynchronizedStmt sync, Expr on | sync = m.getBody().getAChild*() and on = sync.getExpr() |
     if m.isStatic()
-    then on.(TypeLiteral).getTypeName().getType() = m.getDeclaringType()
+    then on.(TypeLiteral).getReferencedType() = m.getDeclaringType()
     else on.(ThisAccess).getType().(RefType).getSourceDeclaration() = m.getDeclaringType()
   )
 }
@@ -37,6 +35,7 @@ predicate isSynchronizedByBlock(Method m) {
  * In this case, even if `set` is synchronized and `get` is not, `get` will never see stale
  * values for the field, so synchronization is optional.
  */
+pragma[nomagic]
 predicate bothAccessVolatileField(Method set, Method get) {
   exists(Field f | f.isVolatile() |
     f = get.(GetterMethod).getField() and

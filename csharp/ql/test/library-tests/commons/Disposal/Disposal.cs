@@ -1,5 +1,3 @@
-// semmle-extractor-options: --cil /r:System.Net.Http.dll /r:System.Runtime.Extensions.dll /r:System.Private.Xml.dll
-
 using System;
 
 class Disposal : IDisposable
@@ -21,6 +19,6 @@ class Disposal : IDisposable
         field1 = p1;
         if(p2 is IDisposable d)
             d.Dispose();
-        Console.SetOut(fs);
+        DisposalTests.Class1.Dispose(fs);
     }
 }

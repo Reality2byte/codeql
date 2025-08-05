@@ -4,6 +4,7 @@
  *              insertion of special characters in the strings.
  * @kind problem
  * @problem.severity error
+ * @security-severity 9.8
  * @precision high
  * @id java/concatenated-command-line
  * @tags security
@@ -11,9 +12,9 @@
  *       external/cwe/cwe-088
  */
 
-import semmle.code.java.Expr
+import java
+import semmle.code.java.security.CommandLineQuery
 import semmle.code.java.security.ExternalProcess
-import ExecCommon
 
 /**
  * Strings that are known to be sane by some simple local analysis. Such strings
@@ -47,5 +48,5 @@ predicate builtFromUncontrolledConcat(Expr expr) {
 from StringArgumentToExec argument
 where
   builtFromUncontrolledConcat(argument) and
-  not execTainted(_, _, argument)
+  not execIsTainted(_, _, argument)
 select argument, "Command line is built with string concatenation."

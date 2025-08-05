@@ -3,6 +3,7 @@
  * @description Directory browsing should not be enabled in production as it can leak sensitive information.
  * @kind problem
  * @problem.severity warning
+ * @security-severity 6.5
  * @precision very-high
  * @id cs/web/directory-browse-enabled
  * @tags security
@@ -12,7 +13,7 @@
 import csharp
 import semmle.code.asp.WebConfig
 
-from SystemWebServerXMLElement ws, XMLAttribute a
+from SystemWebServerXmlElement ws, XmlAttribute a
 where
   ws.getAChild("directoryBrowse").getAttribute("enabled") = a and
   a.getValue() = "true"

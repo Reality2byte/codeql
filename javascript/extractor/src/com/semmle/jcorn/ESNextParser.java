@@ -240,6 +240,9 @@ public class ESNextParser extends JSXParser {
     if (this.type == TokenType._import) {
       Position startLoc = this.startLoc;
       this.next();
+      if (this.eat(TokenType.dot)) {
+        return parseImportMeta(startLoc);
+      }
       this.expect(TokenType.parenL);
       return parseDynamicImport(startLoc);
     }
@@ -311,7 +314,9 @@ public class ESNextParser extends JSXParser {
         this.parseExportSpecifiersMaybe(specifiers, exports);
       }
       Literal source = (Literal) this.parseExportFrom(specifiers, null, true);
-      return this.finishNode(new ExportNamedDeclaration(exportStart, null, specifiers, source));
+      Expression attributes = this.parseImportOrExportAttributesAndSemicolon();
+      return this.finishNode(
+          new ExportNamedDeclaration(exportStart, null, specifiers, source, attributes));
     }
 
     return super.parseExportRest(exportStart, exports);
@@ -327,7 +332,9 @@ public class ESNextParser extends JSXParser {
       List<ExportSpecifier> specifiers = CollectionUtil.makeList(nsSpec);
       this.parseExportSpecifiersMaybe(specifiers, exports);
       Literal source = (Literal) this.parseExportFrom(specifiers, null, true);
-      return this.finishNode(new ExportNamedDeclaration(exportStart, null, specifiers, source));
+      Expression attributes = this.parseImportOrExportAttributesAndSemicolon();
+      return this.finishNode(
+          new ExportNamedDeclaration(exportStart, null, specifiers, source, attributes));
     }
 
     return super.parseExportAll(exportStart, starLoc, exports);
@@ -414,13 +421,33 @@ public class ESNextParser extends JSXParser {
   }
 
   /**
+   * Parses an import.meta expression, assuming that the initial "import" and "." has been consumed.
+   */
+  private MetaProperty parseImportMeta(Position loc) {
+    Position propertyLoc = this.startLoc;
+    Identifier property = this.parseIdent(true);
+    if (!property.getName().equals("meta")) {
+      this.unexpected(propertyLoc);
+    }
+    return this.finishNode(
+      new MetaProperty(new SourceLocation(loc), new Identifier(new SourceLocation(loc), "import"), property));
+  }
+
+  /**
    * Parses a dynamic import, assuming that the keyword `import` and the opening parenthesis have
    * already been consumed.
    */
   private DynamicImport parseDynamicImport(Position startLoc) {
     Expression source = parseMaybeAssign(false, null, null);
+    Expression attributes = null;
+    if (this.eat(TokenType.comma)) {
+      if (this.type != TokenType.parenR) { // Skip if the comma was a trailing comma
+        attributes = this.parseMaybeAssign(false, null, null);
+        this.eat(TokenType.comma); // Allow trailing comma
+      }
+    }
     this.expect(TokenType.parenR);
-    DynamicImport di = this.finishNode(new DynamicImport(new SourceLocation(startLoc), source));
+    DynamicImport di = this.finishNode(new DynamicImport(new SourceLocation(startLoc), source, attributes));
     return di;
   }
 
@@ -432,7 +459,11 @@ public class ESNextParser extends JSXParser {
   protected Statement parseForStatement(Position startLoc) {
     int startPos = this.start;
     boolean isAwait = false;
-    if (this.inAsync && this.eatContextual("await")) isAwait = true;
+    if (this.inAsync || (options.esnext() && !this.inFunction)) {
+        if (this.eatContextual("await")) {
+          isAwait = true;
+        }
+    }
     Statement forStmt = super.parseForStatement(startLoc);
     if (isAwait) {
       if (forStmt instanceof ForOfStatement) ((ForOfStatement) forStmt).setAwait(true);
@@ -466,6 +497,7 @@ public class ESNextParser extends JSXParser {
 
       if (code == '_') {
         if (underscoreAllowed) {
+          seenUnderscoreNumericSeparator = true;
           // no adjacent underscores
           underscoreAllowed = false;
           ++this.pos;

@@ -4,6 +4,7 @@
  *              execute arbitrary code.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.8
  * @precision high
  * @id java/unsafe-deserialization
  * @tags security
@@ -11,19 +12,10 @@
  */
 
 import java
-import semmle.code.java.dataflow.FlowSources
-import UnsafeDeserialization
-import DataFlow::PathGraph
+import semmle.code.java.security.UnsafeDeserializationQuery
+import UnsafeDeserializationFlow::PathGraph
 
-class UnsafeDeserializationConfig extends TaintTracking::Configuration {
-  UnsafeDeserializationConfig() { this = "UnsafeDeserializationConfig" }
-
-  override predicate isSource(DataFlow::Node source) { source instanceof RemoteFlowSource }
-
-  override predicate isSink(DataFlow::Node sink) { sink instanceof UnsafeDeserializationSink }
-}
-
-from DataFlow::PathNode source, DataFlow::PathNode sink, UnsafeDeserializationConfig conf
-where conf.hasFlowPath(source, sink)
+from UnsafeDeserializationFlow::PathNode source, UnsafeDeserializationFlow::PathNode sink
+where UnsafeDeserializationFlow::flowPath(source, sink)
 select sink.getNode().(UnsafeDeserializationSink).getMethodAccess(), source, sink,
-  "Unsafe deserialization of $@.", source.getNode(), "user input"
+  "Unsafe deserialization depends on a $@.", source.getNode(), "user-provided value"

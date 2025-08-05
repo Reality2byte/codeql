@@ -1,16 +1,20 @@
+/**
+ * @kind path-problem
+ */
+
 import csharp
-import semmle.code.csharp.dataflow.TaintTracking
+import Taint::PathGraph
 
-class MyConfiguration extends TaintTracking::Configuration {
-  MyConfiguration() { this = "EntityFramework dataflow" }
+module TaintConfig implements DataFlow::ConfigSig {
+  predicate isSource(DataFlow::Node node) { node.asExpr().getValue() = "tainted" }
 
-  override predicate isSource(DataFlow::Node node) { node.asExpr().getValue() = "tainted" }
-
-  override predicate isSink(DataFlow::Node node) {
+  predicate isSink(DataFlow::Node node) {
     node.asExpr() = any(MethodCall c | c.getTarget().hasName("Sink")).getAnArgument()
   }
 }
 
-from MyConfiguration config, DataFlow::Node source, DataFlow::Node sink
-where config.hasFlow(source, sink)
-select sink, source
+module Taint = TaintTracking::Global<TaintConfig>;
+
+from Taint::PathNode source, Taint::PathNode sink
+where Taint::flowPath(source, sink)
+select sink, source, sink, "$@", source, source.toString()

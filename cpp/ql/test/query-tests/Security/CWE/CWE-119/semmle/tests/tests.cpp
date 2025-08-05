@@ -114,7 +114,7 @@ void test6(bool cond)
 	
 	c = 100;
 	buffer[c] = 'x'; // BAD: over-write [NOT DETECTED]
-	ch = buffer[c]; // BAD: under-read [NOT DETECTED]
+	ch = buffer[c]; // BAD: over-read [NOT DETECTED]
 
 	d = 0;
 	d = 1000;
@@ -576,7 +576,7 @@ void test21(bool cond)
 	} else {
 		if (ptr[-1] == 0) { return; } // BAD: accesses buffer[-1]
 	}
-	if (ptr[-1] == 0) { return; } // BAD: accesses buffer[-1] or buffer[0]
+	if (ptr[-1] == 0) { return; } // BAD: accesses buffer[-1] or buffer[0] [NOT DETECTED]
 
 	ptr = buffer;
 	for (i = 0; i < 2; i++)
@@ -586,7 +586,29 @@ void test21(bool cond)
 	if (ptr[-1] == 0) { return; } // GOOD: accesses buffer[1]
 }
 
-int main(int argc, char *argv[])
+void test22(bool b, const char* source) {
+	char buffer[16];
+	int k;
+	for (k = 0; k <= 100; k++) {
+		if(k < 16) {
+			buffer[k] = 'x'; // GOOD
+		}
+	}
+
+	char dest[128];
+	int n = b ? 1024 : 132;
+	if (n >= 128) {
+    return;
+  }
+  memcpy(dest, source, n); // GOOD
+}
+
+int test23() {
+	char buffer[100];
+	return sizeof(buffer) / sizeof(buffer[101]); // GOOD
+}
+
+int tests_main(int argc, char *argv[])
 {
 	long long arr17[19];
 
@@ -609,6 +631,8 @@ int main(int argc, char *argv[])
 	test19(argc == 0);
 	test20();
 	test21(argc == 0);
+	test22(argc == 0, argv[0]);
+	test23();
 
 	return 0;
 }

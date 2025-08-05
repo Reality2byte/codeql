@@ -4,46 +4,18 @@
  *              malicious SQL code by the user.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 8.8
  * @precision high
  * @id py/sql-injection
  * @tags security
  *       external/cwe/cwe-089
- *       external/owasp/owasp-a1
  */
 
 import python
-import semmle.python.security.Paths
+import semmle.python.security.dataflow.SqlInjectionQuery
+import SqlInjectionFlow::PathGraph
 
-/* Sources */
-import semmle.python.web.HttpRequest
-
-/* Sinks */
-import semmle.python.security.injection.Sql
-import semmle.python.web.django.Db
-import semmle.python.web.django.Model
-
-class SQLInjectionConfiguration extends TaintTracking::Configuration {
-
-    SQLInjectionConfiguration() { this = "SQL injection configuration" }
-
-    override predicate isSource(TaintTracking::Source source) { source instanceof HttpRequestTaintSource }
-
-    override predicate isSink(TaintTracking::Sink sink) { sink instanceof SqlInjectionSink }
-
-}
-
-/* Additional configuration to support tracking of DB objects. Connections, cursors, etc. */
-class DbConfiguration extends TaintTracking::Configuration {
-
-    DbConfiguration() { this = "DB configuration" }
-
-    override predicate isSource(TaintTracking::Source source) {
-        source instanceof DjangoModelObjects or
-        source instanceof DbConnectionSource
-    }
-
-}
-
-from SQLInjectionConfiguration config, TaintedPathSource src, TaintedPathSink sink
-where config.hasFlowPath(src, sink)
-select sink.getSink(), src, sink, "This SQL query depends on $@.", src.getSource(), "a user-provided value"
+from SqlInjectionFlow::PathNode source, SqlInjectionFlow::PathNode sink
+where SqlInjectionFlow::flowPath(source, sink)
+select sink.getNode(), source, sink, "This SQL query depends on a $@.", source.getNode(),
+  "user-provided value"

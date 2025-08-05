@@ -4,42 +4,21 @@
  *              user to change the meaning of the command.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.8
  * @sub-severity high
  * @precision high
  * @id py/command-line-injection
  * @tags correctness
  *       security
- *       external/owasp/owasp-a1
  *       external/cwe/cwe-078
  *       external/cwe/cwe-088
  */
 
 import python
-import semmle.python.security.Paths
+import semmle.python.security.dataflow.CommandInjectionQuery
+import CommandInjectionFlow::PathGraph
 
-/* Sources */
-import semmle.python.web.HttpRequest
-
-/* Sinks */
-import semmle.python.security.injection.Command
-
-class CommandInjectionConfiguration extends TaintTracking::Configuration {
-
-    CommandInjectionConfiguration() { this = "Command injection configuration" }
-
-    override predicate isSource(TaintTracking::Source source) { source instanceof HttpRequestTaintSource }
-
-    override predicate isSink(TaintTracking::Sink sink) {
-        sink instanceof OsCommandFirstArgument or
-        sink instanceof ShellCommand
-    }
-
-    override predicate isExtension(TaintTracking::Extension extension) {
-        extension instanceof FirstElementFlow
-    }
-
-}
-
-from CommandInjectionConfiguration config, TaintedPathSource src, TaintedPathSink sink
-where config.hasFlowPath(src, sink)
-select sink.getSink(), src, sink, "This command depends on $@.", src.getSource(), "a user-provided value"
+from CommandInjectionFlow::PathNode source, CommandInjectionFlow::PathNode sink
+where CommandInjectionFlow::flowPath(source, sink)
+select sink.getNode(), source, sink, "This command line depends on a $@.", source.getNode(),
+  "user-provided value"

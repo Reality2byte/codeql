@@ -1,7 +1,7 @@
 #10000=@"/anonFunctionWithoutParens.js;sourcefile"
-files(#10000,"/anonFunctionWithoutParens.js","anonFunctionWithoutParens","js",0)
+files(#10000,"/anonFunctionWithoutParens.js")
 #10001=@"/;folder"
-folders(#10001,"/","")
+folders(#10001,"/")
 containerparent(#10001,#10000)
 #10002=@"loc,{#10000},0,0,0,0"
 locations_default(#10002,#10000,0,0,0,0)
@@ -76,8 +76,8 @@ hasLocation(#20001,#20003)
 scopes(#20026,3)
 scopenodes(#20001,#20026)
 scopenesting(#20026,#20000)
-isModule(#20001)
-isES2015Module(#20001)
+is_module(#20001)
+is_es2015_module(#20001)
 #20027=*
 entry_cfg_node(#20027,#20001)
 #20028=@"loc,{#10000},1,1,1,0"

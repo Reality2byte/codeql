@@ -4,6 +4,7 @@
  *              changes in the strings.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.8
  * @precision high
  * @id java/command-line-injection
  * @tags security
@@ -11,13 +12,13 @@
  *       external/cwe/cwe-088
  */
 
-import semmle.code.java.Expr
-import semmle.code.java.dataflow.FlowSources
-import semmle.code.java.security.ExternalProcess
-import ExecCommon
-import DataFlow::PathGraph
+import java
+import semmle.code.java.security.CommandLineQuery
+import RemoteUserInputToArgumentToExecFlow::PathGraph
 
-from DataFlow::PathNode source, DataFlow::PathNode sink, StringArgumentToExec execArg
-where execTainted(source, sink, execArg)
-select execArg, source, sink, "$@ flows to here and is used in a command.", source.getNode(),
-  "User-provided value"
+from
+  RemoteUserInputToArgumentToExecFlow::PathNode source,
+  RemoteUserInputToArgumentToExecFlow::PathNode sink, Expr execArg
+where execIsTainted(source, sink, execArg)
+select execArg, source, sink, "This command line depends on a $@.", source.getNode(),
+  "user-provided value"

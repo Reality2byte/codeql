@@ -33,15 +33,18 @@
 | Capture.cs:92:18:92:18 | d | Capture.cs:92:18:92:18 | SSA param(d) | Capture.cs:92:18:92:18 | d |
 | Capture.cs:94:13:94:13 | y | Capture.cs:94:13:94:18 | SSA def(y) | Capture.cs:94:13:94:18 | Int32 y = ... |
 | Capture.cs:98:17:98:17 | x | Capture.cs:98:17:98:21 | SSA def(x) | Capture.cs:98:17:98:21 | Int32 x = ... |
+| Capture.cs:102:13:102:13 | z | Capture.cs:102:13:102:18 | SSA def(z) | Capture.cs:102:13:102:18 | Int32 z = ... |
 | Capture.cs:102:13:102:13 | z | Capture.cs:105:13:105:17 | SSA def(z) | Capture.cs:105:13:105:17 | ... = ... |
 | Capture.cs:114:13:114:13 | a | Capture.cs:114:13:114:18 | SSA def(a) | Capture.cs:114:13:114:18 | Int32 a = ... |
 | Capture.cs:117:17:117:17 | x | Capture.cs:117:17:117:21 | SSA def(x) | Capture.cs:117:17:117:21 | Int32 x = ... |
+| Capture.cs:122:13:122:13 | b | Capture.cs:122:13:122:18 | SSA def(b) | Capture.cs:122:13:122:18 | Int32 b = ... |
 | Capture.cs:122:13:122:13 | b | Capture.cs:125:13:125:17 | SSA def(b) | Capture.cs:125:13:125:17 | ... = ... |
 | Capture.cs:130:13:130:13 | c | Capture.cs:130:13:130:18 | SSA def(c) | Capture.cs:130:13:130:18 | Int32 c = ... |
 | Capture.cs:130:13:130:13 | c | Capture.cs:133:13:133:17 | SSA def(c) | Capture.cs:133:13:133:17 | ... = ... |
 | Capture.cs:139:13:139:13 | d | Capture.cs:139:13:139:18 | SSA def(d) | Capture.cs:139:13:139:18 | Int32 d = ... |
 | Capture.cs:139:13:139:13 | d | Capture.cs:142:13:142:17 | SSA def(d) | Capture.cs:142:13:142:17 | ... = ... |
 | Capture.cs:154:13:154:13 | f | Capture.cs:154:13:154:18 | SSA def(f) | Capture.cs:154:13:154:18 | Int32 f = ... |
+| Capture.cs:154:13:154:13 | f | Capture.cs:158:13:158:17 | SSA def(f) | Capture.cs:158:13:158:17 | ... = ... |
 | Capture.cs:168:13:168:13 | h | Capture.cs:171:13:171:17 | SSA def(h) | Capture.cs:171:13:171:17 | ... = ... |
 | Capture.cs:168:13:168:13 | h | Capture.cs:174:17:174:21 | SSA def(h) | Capture.cs:174:17:174:21 | ... = ... |
 | Capture.cs:182:17:182:17 | i | Capture.cs:182:17:182:21 | SSA def(i) | Capture.cs:182:17:182:21 | Int32 i = ... |
@@ -54,6 +57,9 @@
 | Capture.cs:212:30:212:35 | exited | Capture.cs:212:30:212:71 | SSA def(exited) | Capture.cs:212:30:212:71 | EventHandler exited = ... |
 | Capture.cs:229:13:229:13 | i | Capture.cs:232:9:232:13 | SSA def(i) | Capture.cs:232:9:232:13 | ... = ... |
 | Capture.cs:229:13:229:13 | i | Capture.cs:235:21:235:25 | SSA def(i) | Capture.cs:235:21:235:25 | ... = ... |
+| Capture.cs:242:13:242:13 | i | Capture.cs:242:13:242:17 | SSA def(i) | Capture.cs:242:13:242:17 | Int32 i = ... |
+| Capture.cs:242:13:242:13 | i | Capture.cs:254:27:254:27 | SSA def(i) | Capture.cs:254:27:254:27 | access to local variable i |
+| Capture.cs:248:36:248:36 | j | Capture.cs:251:13:251:17 | SSA def(j) | Capture.cs:251:13:251:17 | ... = ... |
 | Consistency.cs:7:25:7:25 | b | Consistency.cs:7:25:7:25 | SSA param(b) | Consistency.cs:7:25:7:25 | b |
 | Consistency.cs:15:17:15:17 | i | Consistency.cs:15:17:15:21 | SSA def(i) | Consistency.cs:15:17:15:21 | Int32 i = ... |
 | Consistency.cs:15:17:15:17 | i | Consistency.cs:15:17:15:21 | [finally: exception(Exception)] SSA def(i) | Consistency.cs:15:17:15:21 | Int32 i = ... |
@@ -221,6 +227,14 @@
 | Test.cs:56:13:56:17 | this.field | Test.cs:57:9:57:17 | SSA def(this.field) | Test.cs:57:9:57:17 | ... = ... |
 | Test.cs:62:16:62:16 | x | Test.cs:62:16:62:16 | SSA param(x) | Test.cs:62:16:62:16 | x |
 | Test.cs:68:45:68:45 | e | Test.cs:68:45:68:45 | [exception: DivideByZeroException] SSA def(e) | Test.cs:68:45:68:45 | DivideByZeroException e |
+| Test.cs:76:24:76:25 | b1 | Test.cs:76:24:76:25 | SSA param(b1) | Test.cs:76:24:76:25 | b1 |
+| Test.cs:76:33:76:34 | b2 | Test.cs:76:33:76:34 | SSA param(b2) | Test.cs:76:33:76:34 | b2 |
+| Test.cs:76:42:76:43 | b3 | Test.cs:76:42:76:43 | SSA param(b3) | Test.cs:76:42:76:43 | b3 |
+| Test.cs:76:51:76:52 | b4 | Test.cs:76:51:76:52 | SSA param(b4) | Test.cs:76:51:76:52 | b4 |
+| Test.cs:76:60:76:61 | b5 | Test.cs:76:60:76:61 | SSA param(b5) | Test.cs:76:60:76:61 | b5 |
+| Test.cs:76:69:76:70 | b6 | Test.cs:76:69:76:70 | SSA param(b6) | Test.cs:76:69:76:70 | b6 |
+| Test.cs:78:13:78:13 | x | Test.cs:78:13:78:17 | SSA def(x) | Test.cs:78:13:78:17 | Int32 x = ... |
+| Test.cs:78:13:78:13 | x | Test.cs:108:13:108:17 | SSA def(x) | Test.cs:108:13:108:17 | ... = ... |
 | Tuples.cs:10:14:10:14 | x | Tuples.cs:10:9:10:54 | SSA def(x) | Tuples.cs:10:9:10:54 | ... = ... |
 | Tuples.cs:10:14:10:14 | x | Tuples.cs:14:9:14:32 | SSA def(x) | Tuples.cs:14:9:14:32 | ... = ... |
 | Tuples.cs:10:14:10:14 | x | Tuples.cs:23:9:23:37 | SSA def(x) | Tuples.cs:23:9:23:37 | ... = ... |

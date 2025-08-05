@@ -1,4 +1,4 @@
-/*
+/**
  * Provides classes and predicates for "dead locals": which variables are used, which assignments are useless, etc.
  */
 
@@ -44,8 +44,8 @@ predicate overwritten(SsaExplicitUpdate ssa) {
     not deadLocal(overwrite) and
     not overwrite.getDefiningExpr() instanceof LocalVariableDeclExpr and
     exists(BasicBlock bb1, BasicBlock bb2, int i, int j |
-      bb1.getNode(i) = ssa.getCFGNode() and
-      bb2.getNode(j) = overwrite.getCFGNode()
+      bb1.getNode(i) = ssa.getCfgNode() and
+      bb2.getNode(j) = overwrite.getCfgNode()
     |
       bb1.getABBSuccessor+() = bb2
       or
@@ -113,12 +113,8 @@ private predicate constructorHasEffect(Constructor c) {
   or
   exists(Assignment a | a.getEnclosingCallable() = c |
     not exists(VarAccess va | va = a.getDest() |
-      va.getVariable() instanceof LocalVariableDecl
-      or
-      exists(Field f | f = va.getVariable() |
-        va.getQualifier() instanceof ThisAccess or
-        not exists(va.getQualifier())
-      )
+      va.getVariable() instanceof LocalVariableDecl or
+      va.(FieldAccess).isOwnFieldAccess()
     )
   )
 }

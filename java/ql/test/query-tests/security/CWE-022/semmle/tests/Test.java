@@ -2,16 +2,16 @@
 // http://cwe.mitre.org/data/definitions/22.html
 package test.cwe22.semmle.tests;
 
+import javax.servlet.http.*;
+import javax.servlet.ServletException;
 
-
-
-import java.io.IOException;
-import java.io.File;
-import java.net.InetAddress;
+import java.io.*;
+import java.net.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.FileSystems;
 
+import org.apache.commons.io.output.LockableFileWriter;
 
 class Test {
 	void doGet1(InetAddress address)
@@ -19,17 +19,22 @@ class Test {
 			String temp = address.getHostName();
 			File file;
 			Path path;
-			
+
 			// BAD: construct a file path with user input
 			file = new File(temp);
-			
+
 			// BAD: construct a path with user input
 			path = Paths.get(temp);
-					
+
 			// BAD: construct a path with user input
 			path = FileSystems.getDefault().getPath(temp);
+
+			// BAD: insufficient check
+			if (temp.startsWith("/some_safe_dir/")) {
+				file = new File(temp);
+			}
 	}
-	
+
 	void doGet2(InetAddress address)
 		throws IOException {
 			String temp = address.getHostName();
@@ -39,7 +44,7 @@ class Test {
 			if(isSafe(temp))
 				file = new File(temp);
 	}
-	
+
 	void doGet3(InetAddress address)
 		throws IOException {
 			String temp = address.getHostName();
@@ -61,11 +66,39 @@ class Test {
 			return false;
 		return true;
 	}
-	
+
 	boolean isSortOfSafe(String pathSpec) {
 		// no file separators
 		if (pathSpec.contains(File.separator))
 			return false;
 		return true;
 	}
+
+    public class MyServlet extends HttpServlet {
+        public void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            BufferedReader br = new BufferedReader(new InputStreamReader(request.getInputStream()));
+            String filename = br.readLine();
+            // BAD: construct a file path with user input
+            BufferedWriter bw = new BufferedWriter(new FileWriter("dir/"+filename, true));
+        }
+    }
+
+	void doGet4(InetAddress address)
+	throws IOException {
+		String temp = address.getHostName();
+		// BAD: open a file based on user input, using a MaD-documented API
+		new LockableFileWriter(temp);
+	}
+
+	void doGet5(InetAddress address)
+	throws URISyntaxException {
+		String t = address.getHostName();
+		// BAD: construct a file path with user input
+		new File(new URI(null, t, null));
+		new File(new URI(t, t, null, t));
+		new File(new URI(t, null, t, t));
+		new File(new URI(null, null, t, null, null));
+		new File(new URI(null, null, null, 0, t, null, null));
+	}
+
 }

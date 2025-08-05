@@ -13,7 +13,7 @@ import cpp
 
 class MacroFunctionCall extends MacroInvocation {
   MacroFunctionCall() {
-    not exists(getParentInvocation()) and
+    not exists(this.getParentInvocation()) and
     this.getMacro().getHead().matches("%(%")
   }
 
@@ -23,14 +23,18 @@ class MacroFunctionCall extends MacroInvocation {
 }
 
 int logicalLength(FunctionDeclarationEntry f) {
-  result = count(Stmt s | s.getEnclosingFunction() = f.getFunction() and
-    s.getFile() = f.getFile() and
-    not s instanceof Block and
-    not s instanceof EmptyStmt and
-    not exists(ForStmt for | s = for.getInitialization()) and
-    not s.isAffectedByMacro()) + count(MacroFunctionCall mf | mf.getFunction() = f)
+  result =
+    count(Stmt s |
+        s.getEnclosingFunction() = f.getFunction() and
+        s.getFile() = f.getFile() and
+        not s instanceof BlockStmt and
+        not s instanceof EmptyStmt and
+        not exists(ForStmt for | s = for.getInitialization()) and
+        not s.isAffectedByMacro()
+      ) + count(MacroFunctionCall mf | mf.getFunction() = f)
 }
 
 from FunctionDeclarationEntry f, int n
 where logicalLength(f) = n and n > 60
-select f.getFunction(), "Function " + f.getName() + " has too many logical lines (" + n + ", while 60 are allowed)."
+select f.getFunction(),
+  "Function " + f.getName() + " has too many logical lines (" + n + ", while 60 are allowed)."

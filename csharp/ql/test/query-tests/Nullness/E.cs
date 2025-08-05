@@ -9,9 +9,9 @@ public class E
         long[][] a2 = null;
         var haveA2 = ix < len && (a2 = a1[ix]) != null;
         long[] a3 = null;
-        var haveA3 = haveA2 && (a3 = a2[ix]) != null; // GOOD (false positive)
+        var haveA3 = haveA2 && (a3 = a2[ix]) != null; // GOOD (FALSE POSITIVE)
         if (haveA3)
-            a3[0] = 0; // GOOD (false positive)
+            a3[0] = 0; // GOOD (FALSE POSITIVE)
     }
 
     public void Ex2(bool x, bool y)
@@ -24,7 +24,7 @@ public class E
             s2 = (s1 == null) ? null : "";
         }
         if (s2 != null)
-            s1.ToString(); // GOOD (false positive)
+            s1.ToString(); // GOOD (FALSE POSITIVE)
     }
 
     public void Ex3(IEnumerable<string> ss)
@@ -32,7 +32,7 @@ public class E
         string last = null;
         foreach (var s in new string[] { "aa", "bb" })
             last = s;
-        last.ToString(); // GOOD (false positive)
+        last.ToString(); // GOOD
 
         last = null;
         if (ss.Any())
@@ -40,7 +40,7 @@ public class E
             foreach (var s in ss)
                 last = s;
 
-            last.ToString(); // GOOD (false positive)
+            last.ToString(); // GOOD
         }
     }
 
@@ -58,7 +58,7 @@ public class E
                 slice = new List<string>();
                 result.Add(slice);
             }
-            slice.Add(str); // GOOD (false positive)
+            slice.Add(str); // GOOD (FALSE POSITIVE)
             ++index;
         }
     }
@@ -70,7 +70,7 @@ public class E
             arrLen = arr == null ? 0 : arr.Length;
 
         if (arrLen > 0)
-            arr[0] = 0; // GOOD (false positive)
+            arr[0] = 0; // GOOD (FALSE POSITIVE)
     }
 
     public const int MY_CONST_A = 1;
@@ -109,7 +109,7 @@ public class E
             arr2 = new int[arr1.Length];
 
         for (var i = 0; i < arr1.Length; i++)
-            arr2[i] = arr1[i]; // GOOD (false positive)
+            arr2[i] = arr1[i]; // GOOD (FALSE POSITIVE)
     }
 
     public void Ex8(int x, int lim)
@@ -122,7 +122,7 @@ public class E
             int j = 0;
             while (!stop && j < lim)
             {
-                int step = (j * obj.GetHashCode()) % 10; // GOOD (false positive)
+                int step = (j * obj.GetHashCode()) % 10; // GOOD (FALSE POSITIVE)
                 if (step == 0)
                 {
                     obj.ToString(); // GOOD
@@ -156,7 +156,7 @@ public class E
             cond = true;
         }
         if (cond)
-            obj2.ToString(); // GOOD (false positive)
+            obj2.ToString(); // GOOD (FALSE POSITIVE)
     }
 
     public void Ex10(int[] a)
@@ -164,7 +164,7 @@ public class E
         int n = a == null ? 0 : a.Length;
         for (var i = 0; i < n; i++)
         {
-            int x = a[i]; // GOOD (false positive)
+            int x = a[i]; // GOOD (FALSE POSITIVE)
             if (x > 7)
                 a = new int[n];
         }
@@ -175,7 +175,7 @@ public class E
         bool b2 = obj == null ? false : b1;
         if (b2 == null)
         {
-            obj.ToString(); // GOOD (false positive)
+            obj.ToString(); // GOOD (FALSE POSITIVE)
         }
         if (obj == null)
         {
@@ -183,7 +183,7 @@ public class E
         }
         if (b1 == null)
         {
-            obj.ToString(); // GOOD (false positive)
+            obj.ToString(); // GOOD (FALSE POSITIVE)
         }
     }
 
@@ -198,15 +198,15 @@ public class E
         var o = b ? null : "";
         o.M1(); // GOOD
         if (b)
-          o.M2(); // BAD (maybe)
+            o.M2(); // BAD (maybe)
         else
-          o.Select(x => x); // BAD (maybe)
+            o.Select(x => x); // BAD (maybe)
     }
 
     public int Ex14(string s)
     {
         if (s is string)
-          return s.Length;
+            return s.Length;
         return s.GetHashCode(); // BAD (always)
     }
 
@@ -342,6 +342,95 @@ public class E
         var x = s ?? o as string;
         x.ToString(); // BAD (maybe)
     }
+
+    static void Ex31(string s, object o)
+    {
+        dynamic x = s ?? o as string;
+        x.ToString(); // BAD (maybe)
+    }
+
+    static void Ex32(string s, object o)
+    {
+        dynamic x = s ?? o as string;
+        if (x != null)
+            x.ToString(); // GOOD
+    }
+
+    static void Ex33(string s, object o)
+    {
+        var x = s ?? o as string;
+        if (x != (string)null)
+            x.ToString(); // GOOD
+    }
+
+    static int Ex34(string s = null) => s.Length; // BAD (maybe)
+
+    static int Ex35(string s = "null") => s.Length; // GOOD
+
+    static int Ex36(object o)
+    {
+        if (o is string)
+        {
+            var s = o as string;
+            return s.Length; // GOOD (FALSE POSITIVE)
+        }
+        return -1;
+    }
+
+    static bool Ex37(E e1, E e2)
+    {
+        if ((e1 == null && e2 != null) || (e1 != null && e2 == null))
+            return false;
+        if (e1 == null && e2 == null)
+            return true;
+        return e1.Long == e2.Long; // GOOD (FALSE POSITIVE)
+    }
+
+    int Ex38(int? i)
+    {
+        i ??= 0;
+        return i.Value; // GOOD
+    }
+
+    System.Drawing.Color Ex39(System.Drawing.Color? color)
+    {
+        color ??= System.Drawing.Color.White;
+        return color.Value; // GOOD
+    }
+
+    int Ex40()
+    {
+        int? i = null;
+        i ??= null;
+        return i.Value; // BAD (always)
+    }
+
+    int Ex41()
+    {
+        int? i = 1;
+        i ??= null;
+        return i.Value; // GOOD
+    }
+
+    static bool Ex42(int? i, IEnumerable<int> @is)
+    {
+        return @is.Any(j => j == i.Value); // BAD (maybe)
+    }
+
+    static bool Ex43(int? i, IEnumerable<int> @is)
+    {
+        if (i.HasValue)
+            return @is.Any(j => j == i.Value); // GOOD
+        return false;
+    }
+
+    static bool Ex44(int? i, IEnumerable<int> @is)
+    {
+        if (i.HasValue)
+            @is = @is.Where(j => j == i.Value); // BAD (always) (FALSE NEGATIVE)
+        i = null;
+        return @is.Any();
+    }
 }
 
 public static class Extensions
@@ -349,5 +438,3 @@ public static class Extensions
     public static void M1(this string s) { }
     public static int M2(this string s) => s.Length;
 }
-
-// semmle-extractor-options: /r:System.Linq.dll

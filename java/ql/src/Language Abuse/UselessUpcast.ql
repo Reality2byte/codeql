@@ -12,10 +12,10 @@
 
 import java
 
-predicate usefulUpcast(CastExpr e) {
+predicate usefulUpcast(CastingExpr e) {
   // Upcasts that may be performed to affect resolution of methods or constructors.
   exists(Call c, int i, Callable target |
-    c.getArgument(i).getProperExpr() = e and
+    c.getArgument(i) = e and
     target = c.getCallee() and
     // An upcast to the type of the corresponding parameter.
     e.getType() = target.getParameterType(i)
@@ -25,20 +25,18 @@ predicate usefulUpcast(CastExpr e) {
       other.getName() = target.getName() and
       other.getSourceDeclaration() != target.getSourceDeclaration()
     |
-      c.(MethodAccess).getReceiverType().(RefType).inherits(other.(Method)) or
+      c.(MethodAccess).getReceiverType().inherits(other.(Method)) or
       other = target.(Constructor).getDeclaringType().getAConstructor()
     )
   )
   or
   // Upcasts of a varargs argument.
-  exists(Call c, int iArg, int iParam | c.getArgument(iArg).getProperExpr() = e |
+  exists(Call c, int iArg, int iParam | c.getArgument(iArg) = e |
     c.getCallee().getParameter(iParam).isVarargs() and iArg >= iParam
   )
   or
   // Upcasts that are performed on an operand of a ternary expression.
-  exists(ConditionalExpr ce |
-    e = ce.getTrueExpr().getProperExpr() or e = ce.getFalseExpr().getProperExpr()
-  )
+  e = any(ConditionalExpr ce).getABranchExpr()
   or
   // Upcasts to raw types.
   e.getType() instanceof RawType
@@ -46,12 +44,12 @@ predicate usefulUpcast(CastExpr e) {
   e.getType().(Array).getElementType() instanceof RawType
   or
   // Upcasts that are performed to affect field, private method, or static method resolution.
-  exists(FieldAccess fa | e = fa.getQualifier().getProperExpr() |
+  exists(FieldAccess fa | e = fa.getQualifier() |
     not e.getExpr().getType().(RefType).inherits(fa.getField())
   )
   or
   exists(MethodAccess ma, Method m |
-    e = ma.getQualifier().getProperExpr() and
+    e = ma.getQualifier() and
     m = ma.getMethod() and
     (m.isStatic() or m.isPrivate())
   |
@@ -61,12 +59,13 @@ predicate usefulUpcast(CastExpr e) {
 
 from Expr e, RefType src, RefType dest
 where
-  exists(CastExpr cse | cse = e |
+  exists(CastingExpr cse | cse = e |
+    (cse instanceof CastExpr or cse instanceof SafeCastExpr) and
     exists(cse.getLocation()) and
     src = cse.getExpr().getType() and
     dest = cse.getType()
   ) and
-  dest = src.getASupertype+() and
+  dest = src.getAStrictAncestor() and
   not usefulUpcast(e)
 select e, "There is no need to upcast from $@ to $@ - the conversion can be done implicitly.", src,
   src.getName(), dest, dest.getName()

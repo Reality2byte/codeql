@@ -27,12 +27,13 @@ predicate isThrowOrReturn(Stmt s) {
  * A `return` statement with an operand (that is, not just `return;`).
  */
 class ValueReturn extends ReturnStmt {
-  ValueReturn() { exists(getExpr()) }
+  ValueReturn() { exists(this.getExpr()) }
 }
 
 /** Gets the lexically first explicit return statement in function `f`. */
 ValueReturn getFirstExplicitReturn(Function f) {
-  result = min(ValueReturn ret |
+  result =
+    min(ValueReturn ret |
       ret.getContainer() = f
     |
       ret order by ret.getLocation().getStartLine(), ret.getLocation().getStartColumn()

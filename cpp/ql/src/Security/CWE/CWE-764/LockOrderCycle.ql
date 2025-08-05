@@ -5,10 +5,12 @@
  * @kind problem
  * @id cpp/lock-order-cycle
  * @problem.severity error
+ * @security-severity 5.0
  * @tags security
  *       external/cwe/cwe-764
  *       external/cwe/cwe-833
  */
+
 import cpp
 import semmle.code.cpp.commons.Synchronization
 import LockFlow
@@ -29,9 +31,10 @@ import LockFlow
  * source of deadlock. The dining philosophers are the classic example.
  */
 Variable lockSuccessor(Variable v) {
-  exists (FunctionCall call
-  | lockedOnEntry(v.getAnAccess(), call) and
-    lockedInCall(result.getAnAccess(), call))
+  exists(FunctionCall call |
+    lockedOnEntry(v.getAnAccess(), call) and
+    lockedInCall(result.getAnAccess(), call)
+  )
 }
 
 from Variable v1, Variable v2

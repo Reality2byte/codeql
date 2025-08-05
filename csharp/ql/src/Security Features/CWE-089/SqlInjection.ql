@@ -4,6 +4,7 @@
  *              malicious SQL code by the user.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 8.8
  * @precision high
  * @id cs/sql-injection
  * @tags security
@@ -11,8 +12,10 @@
  */
 
 import csharp
-import semmle.code.csharp.security.dataflow.SqlInjection::SqlInjection
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.SqlInjectionQuery
+import SqlInjection::PathGraph
+import semmle.code.csharp.security.dataflow.flowsources.Remote
+import semmle.code.csharp.security.dataflow.flowsources.Local
 
 string getSourceType(DataFlow::Node node) {
   result = node.(RemoteFlowSource).getSourceType()
@@ -20,7 +23,7 @@ string getSourceType(DataFlow::Node node) {
   result = node.(LocalFlowSource).getSourceType()
 }
 
-from TaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "Query might include code from $@.", source,
+from SqlInjection::PathNode source, SqlInjection::PathNode sink
+where SqlInjection::flowPath(source, sink)
+select sink.getNode(), source, sink, "This query depends on $@.", source,
   ("this " + getSourceType(source.getNode()))

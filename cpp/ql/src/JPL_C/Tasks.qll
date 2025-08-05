@@ -5,8 +5,8 @@ import cpp
  */
 class Task extends Function {
   Task() {
-    exists(FunctionCall taskCreate, string name | name = "taskCreate" or name = "taskSpawn" |
-      name = taskCreate.getTarget().getName() and
+    exists(FunctionCall taskCreate |
+      taskCreate.getTarget().getName() = ["taskCreate", "taskSpawn"] and
       this = taskCreate.getArgument(4).(AddressOfExpr).getAddressable()
     )
   }
@@ -22,7 +22,8 @@ class Task extends Function {
  */
 class PublicFunction extends Function {
   PublicFunction() {
-    not this.isStatic() and (
+    not this.isStatic() and
+    (
       strictcount(Task t | t.calls+(this)) > 1 or
       not exists(Task t | t.getFile() = this.getFile())
     )

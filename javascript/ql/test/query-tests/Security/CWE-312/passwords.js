@@ -26,8 +26,8 @@
     console.log(obj2); // NOT OK
 
     var obj3 = {};
-    console.log(obj3);
-    obj3.x = password; // NOT OK
+    console.log(obj3); // OK - but still flagged due to flow-insensitive field-analysis. [INCONSISTENCY]
+    obj3.x = password;
 
     var fixed_password = "123";
     console.log(fixed_password); // OK
@@ -90,12 +90,12 @@
     console.log("Password is: " + redact('password', password));
 
     if (environment.isTestEnv()) {
-        console.log("Password is: " + password); // OK, but still flagged
+        console.log("Password is: " + password); // OK, but still flagged [INCONSISTENCY]
     }
 
     if (environment.is(TEST)) {
         // NB: for security reasons, we only log passwords in test environments
-        console.log("Password is: " + password); // OK, but still flagged
+        console.log("Password is: " + password); // OK, but still flagged [INCONSISTENCY]
     }
 
 
@@ -107,7 +107,7 @@
     }
 
     if (environment.isTestEnv())
-        console.log("Password is: " + password); // OK, but still flagged
+        console.log("Password is: " + password); // OK, but still flagged [INCONSISTENCY]
 
     if (x.test(y)) {
         if (f()) {
@@ -116,7 +116,7 @@
     }
 
     if (!environment.isProduction()) {
-        console.log("Password is: " + password); // OK, but still flagged
+        console.log("Password is: " + password); // OK, but still flagged [INCONSISTENCY]
     }
 
     console.log(name + ", " + password.toString()); // NOT OK
@@ -136,4 +136,42 @@
     console.log(config.x); // NOT OK
     console.log(config.y); // NOT OK
     console.log(config[x]); // OK (probably)
+});
+
+function indirectLogCall() {
+	console.log.apply(this, arguments);
+}
+var Util = require('util');
+(function() {
+    var config = {
+        x: password
+    };
+    indirectLogCall(config.x); // NOT OK
+    indirectLogCall(process.env); // NOT OK
+
+    var procdesc = Util.inspect(process.env).replace(/\n/g, '')
+
+    indirectLogCall(procdesc); // NOT OK
+
+    console.log(process.env); // NOT OK
+    console.log(process.env.PATH); // OK.
+    console.log(process.env["foo" + "bar"]); // OK.
+});
+
+(function () {
+	console.log(password.replace(/./g, "*")); // OK!
+	console.log(password.replace(/\./g, "*")); // NOT OK!
+	console.log(password.replace(/foo/g, "*")); // NOT OK!
+})();
+
+const debug = require('debug')('test');
+(function () {
+    console.log(password.replace(/foo/g, "*")); // NOT OK
+    debug(password.replace(/foo/g, "*")); // NOT OK
+
+    const myPassword = foo();
+    console.log(myPassword); // NOT OK
+
+    const myPasscode = foo();
+    console.log(myPasscode); // NOT OK
 });

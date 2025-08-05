@@ -5,12 +5,12 @@
  * @problem.severity recommendation
  * @id js/unused-property
  * @tags maintainability
- * @precision high
+ * @precision low
  */
 
 import javascript
 import semmle.javascript.dataflow.LocalObjects
-import UnusedVariable
+import Declarations.UnusedVariable
 import UnusedParameter
 import Expressions.ExprHasNoEffect
 
@@ -27,6 +27,8 @@ predicate hasUnknownPropertyRead(LocalObject obj) {
   or
   exists(obj.getAPropertyRead("hasOwnProperty"))
   or
+  obj.flowsTo(DataFlow::globalVarRef("Object").getAMemberCall("hasOwn").getArgument(0))
+  or
   exists(obj.getAPropertyRead("propertyIsEnumerable"))
 }
 
@@ -34,15 +36,21 @@ predicate hasUnknownPropertyRead(LocalObject obj) {
  * Holds if `obj` flows to an expression that must have a specific type.
  */
 predicate flowsToTypeRestrictedExpression(LocalObject obj) {
-  exists (Expr restricted, TypeExpr type |
+  exists(Expr restricted, TypeExpr type |
     obj.flowsToExpr(restricted) and
-    not type.isAny() |
-    exists (TypeAssertion assertion |
+    not type.isAny()
+  |
+    exists(TypeAssertion assertion |
       type = assertion.getTypeAnnotation() and
       restricted = assertion.getExpression()
     )
     or
-    exists (BindingPattern v |
+    exists(SatisfiesExpr assertion |
+      type = assertion.getTypeAnnotation() and
+      restricted = assertion.getExpression()
+    )
+    or
+    exists(BindingPattern v |
       type = v.getTypeAnnotation() and
       restricted = v.getAVariable().getAnAssignedExpr()
     )

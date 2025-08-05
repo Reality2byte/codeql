@@ -3,6 +3,7 @@
  * @description Accepting unknown host keys can allow man-in-the-middle attacks.
  * @kind problem
  * @problem.severity error
+ * @security-severity 7.5
  * @precision high
  * @id py/paramiko-missing-host-key-validation
  * @tags security
@@ -10,27 +11,31 @@
  */
 
 import python
+import semmle.python.dataflow.new.DataFlow
+import semmle.python.ApiGraphs
 
-private ModuleObject theParamikoClientModule() { result = ModuleObject::named("paramiko.client") }
-
-private ClassObject theParamikoSSHClientClass() {
-    result = theParamikoClientModule().attr("SSHClient")
+private API::Node unsafe_paramiko_policy(string name) {
+  name in ["AutoAddPolicy", "WarningPolicy"] and
+  (
+    result = API::moduleImport("paramiko").getMember("client").getMember(name)
+    or
+    result = API::moduleImport("paramiko").getMember(name)
+  )
 }
 
-private ClassObject unsafe_paramiko_policy(string name) {
-    (name = "AutoAddPolicy" or name = "WarningPolicy") and
-    result = theParamikoClientModule().attr(name)
+private API::Node paramikoSshClientInstance() {
+  result = API::moduleImport("paramiko").getMember("client").getMember("SSHClient").getReturn()
+  or
+  result = API::moduleImport("paramiko").getMember("SSHClient").getReturn()
 }
 
-from CallNode call, ControlFlowNode arg, string name
+from DataFlow::CallCfgNode call, DataFlow::Node arg, string name
 where
-    call = theParamikoSSHClientClass()
-           .lookupAttribute("set_missing_host_key_policy")
-           .(FunctionObject)
-           .getACall() and
-    arg = call.getAnArg() and
-    (
-        arg.refersTo(unsafe_paramiko_policy(name)) or
-        arg.refersTo(_, unsafe_paramiko_policy(name), _)
-    )
+  // see http://docs.paramiko.org/en/stable/api/client.html#paramiko.client.SSHClient.set_missing_host_key_policy
+  call = paramikoSshClientInstance().getMember("set_missing_host_key_policy").getACall() and
+  arg in [call.getArg(0), call.getArgByName("policy")] and
+  (
+    arg = unsafe_paramiko_policy(name).getAValueReachableFromSource() or
+    arg = unsafe_paramiko_policy(name).getReturn().getAValueReachableFromSource()
+  )
 select call, "Setting missing host key policy to " + name + " may be unsafe."

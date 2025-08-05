@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using System.Diagnostics;
 
@@ -21,7 +20,7 @@ namespace Semmle.Util
 
         private readonly string prefix = "[" + Process.GetCurrentProcess().Id + "] ";
 
-        public override void WriteLine(string value)
+        public override void WriteLine(string? value)
         {
             lock (mutex)
             {
@@ -29,11 +28,11 @@ namespace Semmle.Util
             }
         }
 
-        public override void WriteLine(string value, object[] args)
+        public override void WriteLine(string? format, params object?[] args)
         {
-            WriteLine(String.Format(value, args));
+            WriteLine(format is null ? format : string.Format(format, args));
         }
 
-        readonly object mutex = new object();
+        private readonly object mutex = new object();
     }
 }

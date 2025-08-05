@@ -5,22 +5,23 @@ class ResolveCall extends CallExpr {
 
   Variable getVariable() { result = this.getArgument(0).(VarUse).getVariable() }
 
-  string getExpectation() { result = this.getArgument(1).(ConstantString).getStringValue() }
+  string getExpectation() { result = this.getArgument(1).getStringValue() }
 
   string getDeclaredValue() {
-    result = getVariable().getAnAssignedExpr().(ConstantString).getStringValue()
+    result = this.getVariable().getAnAssignedExpr().getStringValue()
     or
-    exists(NamespaceDeclaration decl | decl.getId() = getVariable().getADeclaration() |
+    exists(NamespaceDeclaration decl | decl.getIdentifier() = this.getVariable().getADeclaration() |
       result = getNamespaceName(decl)
     )
   }
 }
 
 string getNamespaceName(NamespaceDeclaration decl) {
-  result = decl.getStmt(0).(ExprStmt).getExpr().(ConstantString).getStringValue()
+  result = decl.getStmt(0).(ExprStmt).getExpr().getStringValue()
   or
   not decl.getStmt(0).(ExprStmt).getExpr() instanceof ConstantString and
-  result = "Namespace " + decl.getId() + " on line " +
+  result =
+    "Namespace " + decl.getIdentifier() + " on line " +
       decl.getFirstToken().getLocation().getStartLine()
 }
 

@@ -3,6 +3,7 @@
  * @description Using external input as an index to an array, without proper validation, can lead to index out of bound exceptions.
  * @kind path-problem
  * @problem.severity warning
+ * @security-severity 8.8
  * @precision medium
  * @id java/improper-validation-of-array-index
  * @tags security
@@ -10,26 +11,16 @@
  */
 
 import java
-import ArraySizing
-import semmle.code.java.dataflow.FlowSources
-import DataFlow::PathGraph
+import semmle.code.java.security.internal.ArraySizing
+import semmle.code.java.security.ImproperValidationOfArrayIndexQuery
+import ImproperValidationOfArrayIndexFlow::PathGraph
 
-class Conf extends TaintTracking::Configuration {
-  Conf() { this = "RemoteUserInputTocanThrowOutOfBoundsDueToEmptyArrayConfig" }
-
-  override predicate isSource(DataFlow::Node source) { source instanceof RemoteFlowSource }
-
-  override predicate isSink(DataFlow::Node sink) {
-    any(CheckableArrayAccess caa).canThrowOutOfBounds(sink.asExpr())
-  }
-
-  override predicate isSanitizer(DataFlow::Node node) { node.getType() instanceof BooleanType }
-}
-
-from DataFlow::PathNode source, DataFlow::PathNode sink, CheckableArrayAccess arrayAccess
+from
+  ImproperValidationOfArrayIndexFlow::PathNode source,
+  ImproperValidationOfArrayIndexFlow::PathNode sink, CheckableArrayAccess arrayAccess
 where
   arrayAccess.canThrowOutOfBounds(sink.getNode().asExpr()) and
-  any(Conf conf).hasFlowPath(source, sink)
+  ImproperValidationOfArrayIndexFlow::flowPath(source, sink)
 select arrayAccess.getIndexExpr(), source, sink,
-  "$@ flows to here and is used as an index causing an ArrayIndexOutOfBoundsException.",
-  source.getNode(), "User-provided value"
+  "This index depends on a $@ which can cause an ArrayIndexOutOfBoundsException.", source.getNode(),
+  "user-provided value"

@@ -546,7 +546,7 @@
 | classes | 39 | static x = 5; | 39 | t = cla ... () {} } |
 | classes | 39 | t | 39 | A |
 | classes | 39 | t = cla ... () {} } | 39 | t |
-| classes | 39 | t = cla ... () {} } | 42 | exit node of <toplevel> |
+| classes | 39 | t = cla ... () {} } | 40 | exit node of <toplevel> |
 | classes | 39 | x | 39 | 5 |
 | classes | 39 | {} | 39 | exit node of () {} |
 | decorated_parameter | 1 | C | 2 | foo |
@@ -625,7 +625,7 @@
 | fields | 8 | {} | 8 | exit node of () {} |
 | fields | 11 | A | 12 | constructor |
 | fields | 11 | B | 11 | A |
-| fields | 11 | class B ... \\n  z;\\n} | 21 | exit node of <toplevel> |
+| fields | 11 | class B ... \\n  z;\\n} | 19 | exit node of <toplevel> |
 | fields | 12 | constru ... er;\\n  } | 11 | class B ... \\n  z;\\n} |
 | fields | 12 | constructor | 12 | function in constru ... er;\\n  } |
 | fields | 12 | entry node of () {\\n   ... er;\\n  } | 12 | {\\n    b ... er;\\n  } |
@@ -680,7 +680,7 @@
 | globals | 19 | h | 20 | {\\n} |
 | globals | 20 | {\\n} | 21 | exit node of function\\n h()\\n{\\n} |
 | mixedMembers | 1 | Mixed | 3 | constructor |
-| mixedMembers | 1 | class M ... z) {}\\n} | 7 | exit node of <toplevel> |
+| mixedMembers | 1 | class M ... z) {}\\n} | 6 | exit node of <toplevel> |
 | mixedMembers | 1 | entry node of <toplevel> | 1 | Mixed |
 | mixedMembers | 2 | 3 | 2 | x = 3 |
 | mixedMembers | 2 | x | 2 | 3 |
@@ -746,7 +746,7 @@
 | staticFields | 2 | C | 2 | new C() |
 | staticFields | 2 | instance | 2 | C |
 | staticFields | 2 | new C() | 2 | static  ... ew C(); |
-| staticFields | 2 | static  ... ew C(); | 7 | exit node of <toplevel> |
+| staticFields | 2 | static  ... ew C(); | 4 | exit node of <toplevel> |
 | staticFieldsTS | 1 | C | 1 | constructor |
 | staticFieldsTS | 1 | class C ...  C();\\n} | 2 | instance |
 | staticFieldsTS | 1 | constructor | 1 | function in constructor() {} |
@@ -770,7 +770,37 @@
 | staticFieldsTS | 6 | D | 6 | new D() |
 | staticFieldsTS | 6 | instance | 6 | D |
 | staticFieldsTS | 6 | new D() | 6 | static  ... ew D(); |
-| staticFieldsTS | 6 | static  ... ew D(); | 8 | exit node of <toplevel> |
+| staticFieldsTS | 6 | static  ... ew D(); | 9 | export  ... ;\\n  }\\n} |
+| staticFieldsTS | 9 | E | 9 | constructor |
+| staticFieldsTS | 9 | class E ... ;\\n  }\\n} | 10 | f |
+| staticFieldsTS | 9 | constructor | 9 | function in constructor() {} |
+| staticFieldsTS | 9 | constructor() {} | 9 | class E ... ;\\n  }\\n} |
+| staticFieldsTS | 9 | entry node of () {} | 9 | {} |
+| staticFieldsTS | 9 | export  ... ;\\n  }\\n} | 9 | E |
+| staticFieldsTS | 9 | function in constructor() {} | 9 | constructor() {} |
+| staticFieldsTS | 9 | {} | 9 | exit node of () {} |
+| staticFieldsTS | 10 | f | 10 | false |
+| staticFieldsTS | 10 | false | 10 | static  ...  false; |
+| staticFieldsTS | 10 | static  ...  false; | 11 | static  ... ();\\n  } |
+| staticFieldsTS | 11 | static  ... ();\\n  } | 12 | E.f = new C(); |
+| staticFieldsTS | 12 | C | 12 | new C() |
+| staticFieldsTS | 12 | E | 12 | f |
+| staticFieldsTS | 12 | E.f | 12 | C |
+| staticFieldsTS | 12 | E.f = new C() | 14 | g |
+| staticFieldsTS | 12 | E.f = new C(); | 12 | E |
+| staticFieldsTS | 12 | f | 12 | E.f |
+| staticFieldsTS | 12 | new C() | 12 | E.f = new C() |
+| staticFieldsTS | 14 | 1337 | 14 | static  ... = 1337; |
+| staticFieldsTS | 14 | g | 14 | 1337 |
+| staticFieldsTS | 14 | static  ... = 1337; | 15 | static  ... ();\\n  } |
+| staticFieldsTS | 15 | static  ... ();\\n  } | 16 | E.g = new D(); |
+| staticFieldsTS | 16 | D | 16 | new D() |
+| staticFieldsTS | 16 | E | 16 | g |
+| staticFieldsTS | 16 | E.g | 16 | D |
+| staticFieldsTS | 16 | E.g = new D() | 18 | exit node of <toplevel> |
+| staticFieldsTS | 16 | E.g = new D(); | 16 | E |
+| staticFieldsTS | 16 | g | 16 | E.g |
+| staticFieldsTS | 16 | new D() | 16 | E.g = new D() |
 | switch | 1 | entry node of <toplevel> | 14 | f |
 | switch | 1 | switch  ...   19;\\n} | 2 | x |
 | switch | 2 | x | 6 | case\\n   ...     19; |

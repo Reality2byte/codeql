@@ -3,6 +3,7 @@
  * @description Comparing a parameter to a hard-coded credential may compromise security.
  * @kind problem
  * @problem.severity error
+ * @security-severity 9.8
  * @precision low
  * @id java/hardcoded-credential-comparison
  * @tags security
@@ -10,17 +11,8 @@
  */
 
 import java
-import HardcodedCredentials
-
-class EqualsAccess extends MethodAccess {
-  EqualsAccess() { getMethod() instanceof EqualsMethod }
-}
+import semmle.code.java.security.HardcodedCredentialsComparison
 
 from EqualsAccess sink, HardcodedExpr source, PasswordVariable p
-where
-  source = sink.getQualifier() and
-  p.getAnAccess() = sink.getArgument(0)
-  or
-  source = sink.getArgument(0) and
-  p.getAnAccess() = sink.getQualifier()
+where isHardcodedCredentialsComparison(sink, source, p)
 select source, "Hard-coded value is $@ with password variable $@.", sink, "compared", p, p.getName()

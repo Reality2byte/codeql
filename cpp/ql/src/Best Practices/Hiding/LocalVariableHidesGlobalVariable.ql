@@ -2,7 +2,7 @@
  * @name Local variable hides global variable
  * @description A local variable or parameter that hides a global variable of the same name. This may be confusing. Consider renaming one of the variables.
  * @kind problem
- * @problem.severity warning
+ * @problem.severity recommendation
  * @precision very-high
  * @id cpp/local-variable-hides-global-variable
  * @tags maintainability
@@ -35,4 +35,4 @@ from LocalVariableOrParameter lv, GlobalVariable gv
 where
   lv.getName() = gv.getName() and
   lv.getFile() = gv.getFile()
-select lv, lv.type() + gv.getName() + " hides $@ with the same name.", gv, "a global variable"
+select lv, lv.type() + gv.getName() + " hides a $@ with the same name.", gv, "global variable"

@@ -5,6 +5,7 @@
  *              to return any value.
  * @kind problem
  * @problem.severity warning
+ * @security-severity 9.3
  * @precision high
  * @id cs/unvalidated-local-pointer-arithmetic
  * @tags security
@@ -22,11 +23,9 @@ where
   // `add` is performing pointer arithmetic
   add.getType() instanceof PointerType and
   // one of the operands comes, in zero or more steps, from a virtual method call
-  DataFlow::localFlow(DataFlow::exprNode(taintSrc), DataFlow::exprNode(add.getAnOperand())) and
+  DataFlow::localExprFlow(taintSrc, add.getAnOperand()) and
   // virtual method call result has not been validated
-  not exists(Expr check, ComparisonOperation cmp |
-    DataFlow::localFlow(DataFlow::exprNode(taintSrc), DataFlow::exprNode(check))
-  |
+  not exists(Expr check, ComparisonOperation cmp | DataFlow::localExprFlow(taintSrc, check) |
     cmp.getAnOperand() = check and
     add.getAnOperand().(GuardedExpr).isGuardedBy(cmp, check, _)
   )

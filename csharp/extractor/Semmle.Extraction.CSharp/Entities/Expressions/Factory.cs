@@ -1,7 +1,5 @@
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Semmle.Extraction.CSharp.Populators;
 using Semmle.Extraction.Kinds;
 
 namespace Semmle.Extraction.CSharp.Entities.Expressions
@@ -14,9 +12,9 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
             // to the extent that the stack has been known to overflow.
             using (info.Context.StackGuard)
             {
-                if (info.Node == null)
+                if (info.Node is null)
                 {
-                    info.Context.ModelError("Attempt to create a null expression");
+                    info.Context.ModelError(info.Location, "Attempt to create a null expression");
                     return new Unknown(info);
                 }
 
@@ -40,6 +38,7 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
                     case SyntaxKind.IsExpression:
                     case SyntaxKind.AsExpression:
                     case SyntaxKind.RightShiftExpression:
+                    case SyntaxKind.UnsignedRightShiftExpression:
                     case SyntaxKind.LeftShiftExpression:
                     case SyntaxKind.ExclusiveOrExpression:
                     case SyntaxKind.CoalesceExpression:
@@ -48,6 +47,7 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
                     case SyntaxKind.FalseLiteralExpression:
                     case SyntaxKind.TrueLiteralExpression:
                     case SyntaxKind.StringLiteralExpression:
+                    case SyntaxKind.Utf8StringLiteralExpression:
                     case SyntaxKind.NullLiteralExpression:
                     case SyntaxKind.NumericLiteralExpression:
                     case SyntaxKind.CharacterLiteralExpression:
@@ -78,6 +78,7 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
                     case SyntaxKind.ExclusiveOrAssignmentExpression:
                     case SyntaxKind.LeftShiftAssignmentExpression:
                     case SyntaxKind.RightShiftAssignmentExpression:
+                    case SyntaxKind.UnsignedRightShiftAssignmentExpression:
                     case SyntaxKind.DivideAssignmentExpression:
                     case SyntaxKind.ModuloAssignmentExpression:
                     case SyntaxKind.CoalesceAssignmentExpression:
@@ -85,6 +86,9 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
 
                     case SyntaxKind.ObjectCreationExpression:
                         return ExplicitObjectCreation.Create(info);
+
+                    case SyntaxKind.ImplicitObjectCreationExpression:
+                        return ImplicitObjectCreation.Create(info);
 
                     case SyntaxKind.ArrayCreationExpression:
                         return NormalArrayCreation.Create(info);
@@ -129,6 +133,7 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
                     case SyntaxKind.ArrayType:
                     case SyntaxKind.PredefinedType:
                     case SyntaxKind.NullableType:
+                    case SyntaxKind.TupleType:
                         return TypeAccess.Create(info);
 
                     case SyntaxKind.TypeOfExpression:
@@ -180,7 +185,7 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
                         return ImplicitArrayCreation.Create(info);
 
                     case SyntaxKind.AnonymousObjectCreationExpression:
-                        return ImplicitObjectCreation.Create(info);
+                        return AnonymousObjectCreation.Create(info);
 
                     case SyntaxKind.ComplexElementInitializerExpression:
                         return CollectionInitializer.Create(info);
@@ -205,6 +210,9 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
 
                     case SyntaxKind.StackAllocArrayCreationExpression:
                         return StackAllocArrayCreation.Create(info);
+
+                    case SyntaxKind.ImplicitStackAllocArrayCreationExpression:
+                        return ImplicitStackAllocArrayCreation.Create(info);
 
                     case SyntaxKind.ArgListExpression:
                         return ArgList.Create(info);
@@ -244,6 +252,9 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
 
                     case SyntaxKind.SuppressNullableWarningExpression:
                         return PostfixUnary.Create(info.SetKind(ExprKind.SUPPRESS_NULLABLE_WARNING), ((PostfixUnaryExpressionSyntax)info.Node).Operand);
+
+                    case SyntaxKind.WithExpression:
+                        return WithExpression.Create(info);
 
                     default:
                         info.Context.ModelError(info.Node, $"Unhandled expression '{info.Node}' of kind '{info.Node.Kind()}'");

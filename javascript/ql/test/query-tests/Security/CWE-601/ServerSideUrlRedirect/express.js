@@ -135,6 +135,32 @@ app.get('/redirect/:user', function(req, res) {
   res.redirect('//' + req.params.user); // BAD - could go to //evil.com
   res.redirect('u' + req.params.user); // BAD - could go to u.evil.com
 
-  res.redirect('/' + ('/u' + req.params.user)); // BAD - could go to //u.evil.com, but not flagged
+  res.redirect('/' + ('/u' + req.params.user)); // BAD - could go to //u.evil.com, but not flagged [INCONSISTENCY]
   res.redirect('/u' + req.params.user); // GOOD
+});
+
+app.get("foo", (req, res) => {
+  res.redirect(req.query.foo); // NOT OK
+});
+app.get("bar", ({query}, res) => {
+  res.redirect(query.foo); // NOT OK
+})
+
+app.get('/some/path', function(req, res) {
+  let target = req.param("target");
+  
+  if (SAFE_TARGETS.hasOwnProperty(target))
+    res.redirect(target); // OK: request parameter is checked against whitelist
+  else
+    res.redirect(target); // NOT OK
+
+  if (Object.hasOwn(SAFE_TARGETS, target))
+    res.redirect(target); // OK: request parameter is checked against whitelist
+  else
+    res.redirect(target); // NOT OK
+});
+
+app.get("/foo/:bar/:baz", (req, res) => {
+  let myThing = JSON.stringify(req.query).slice(1, -1);
+  res.redirect(myThing); // NOT OK
 });

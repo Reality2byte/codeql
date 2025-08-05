@@ -4,6 +4,7 @@
  *              user to change the meaning of the command.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.8
  * @precision medium
  * @id cs/stored-command-line-injection
  * @tags correctness
@@ -14,14 +15,20 @@
 
 import csharp
 import semmle.code.csharp.security.dataflow.flowsources.Stored
-import semmle.code.csharp.security.dataflow.CommandInjection::CommandInjection
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.CommandInjectionQuery
+import StoredCommandInjection::PathGraph
 
-class StoredTaintTrackingConfiguration extends TaintTrackingConfiguration {
-  override predicate isSource(DataFlow::Node source) { source instanceof StoredFlowSource }
+module StoredCommandInjectionConfig implements DataFlow::ConfigSig {
+  predicate isSource(DataFlow::Node source) { source instanceof StoredFlowSource }
+
+  predicate isSink = CommandInjectionConfig::isSink/1;
+
+  predicate isBarrier = CommandInjectionConfig::isBarrier/1;
 }
 
-from StoredTaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "$@ flows to here and is used in a command.", source.getNode(),
-  "Stored user-provided value"
+module StoredCommandInjection = TaintTracking::Global<StoredCommandInjectionConfig>;
+
+from StoredCommandInjection::PathNode source, StoredCommandInjection::PathNode sink
+where StoredCommandInjection::flowPath(source, sink)
+select sink.getNode(), source, sink, "This command line depends on a $@.", source.getNode(),
+  "stored (potentially user-provided) value"

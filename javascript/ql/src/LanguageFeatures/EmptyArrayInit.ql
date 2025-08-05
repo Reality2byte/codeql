@@ -7,7 +7,7 @@
  * @tags maintainability
  *       readability
  *       language-features
- * @precision high
+ * @precision low
  */
 
 import javascript
@@ -22,22 +22,22 @@ import javascript
 class OmittedArrayElement extends ArrayExpr {
   int idx;
 
-  OmittedArrayElement() { idx = min(int i | elementIsOmitted(i)) }
+  OmittedArrayElement() { idx = min(int i | this.elementIsOmitted(i)) }
 
   /**
    * Holds if this element is at the specified location.
    * The location spans column `startcolumn` of line `startline` to
    * column `endcolumn` of line `endline` in file `filepath`.
    * For more information, see
-   * [Locations](https://help.semmle.com/QL/learn-ql/ql/locations.html).
+   * [Locations](https://codeql.github.com/docs/writing-codeql-queries/providing-locations-in-codeql-queries/).
    */
   predicate hasLocationInfo(
     string filepath, int startline, int startcolumn, int endline, int endcolumn
   ) {
     exists(Token pre, Location before, Location after |
-      idx = 0 and pre = getFirstToken()
+      idx = 0 and pre = this.getFirstToken()
       or
-      pre = getElement(idx - 1).getLastToken().getNextToken()
+      pre = this.getElement(idx - 1).getLastToken().getNextToken()
     |
       before = pre.getLocation() and
       after = pre.getNextToken().getLocation() and

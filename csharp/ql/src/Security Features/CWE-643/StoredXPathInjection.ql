@@ -4,6 +4,7 @@
  *              user is vulnerable to insertion of malicious code by the user.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.8
  * @precision medium
  * @id cs/xml/stored-xpath-injection
  * @tags security
@@ -12,14 +13,20 @@
 
 import csharp
 import semmle.code.csharp.security.dataflow.flowsources.Stored
-import semmle.code.csharp.security.dataflow.XPathInjection
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.XPathInjectionQuery
+import StoredXpathInjection::PathGraph
 
-class StoredTaintTrackingConfiguration extends XPathInjection::TaintTrackingConfiguration {
-  override predicate isSource(DataFlow::Node source) { source instanceof StoredFlowSource }
+module StoredXpathInjectionConfig implements DataFlow::ConfigSig {
+  predicate isSource(DataFlow::Node source) { source instanceof StoredFlowSource }
+
+  predicate isSink = XpathInjectionConfig::isSink/1;
+
+  predicate isBarrier = XpathInjectionConfig::isBarrier/1;
 }
 
-from StoredTaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "$@ flows to here and is used in an XPath expression.",
-  source.getNode(), "Stored user-provided value"
+module StoredXpathInjection = TaintTracking::Global<StoredXpathInjectionConfig>;
+
+from StoredXpathInjection::PathNode source, StoredXpathInjection::PathNode sink
+where StoredXpathInjection::flowPath(source, sink)
+select sink.getNode(), source, sink, "This XPath expression depends on a $@.", source.getNode(),
+  "stored (potentially user-provided) value"

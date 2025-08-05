@@ -20,6 +20,9 @@
 | Test.java:29:22:29:28 | tainted | 26 | Test.java:55:22:55:28 | ...[...] |
 | Test.java:29:22:29:28 | tainted | 29 | Test.java:58:4:58:27 | append(...) |
 | Test.java:29:22:29:28 | tainted | 29 | Test.java:58:19:58:26 | category |
+| Test.java:29:22:29:28 | tainted | 30 | Test.java:59:4:59:10 | querySb |
+| Test.java:29:22:29:28 | tainted | 30 | Test.java:59:4:59:37 | append(...) |
+| Test.java:29:22:29:28 | tainted | 31 | Test.java:60:29:60:35 | querySb |
 | Test.java:29:22:29:28 | tainted | 31 | Test.java:60:29:60:46 | toString(...) |
 | Test.java:29:22:29:28 | tainted | 33 | Test.java:62:47:62:61 | querySbToString |
 | Test.java:29:22:29:28 | tainted | 37 | Test.java:66:18:66:21 | args |
@@ -61,5 +64,7 @@
 | Test.java:213:21:213:24 | main | 5 | Test.java:218:14:218:17 | args |
 | Validation.java:6:21:6:35 | checkIdentifier | 1 | Validation.java:7:23:7:24 | id |
 | Validation.java:6:21:6:35 | checkIdentifier | 2 | Validation.java:8:13:8:14 | id |
+| Validation.java:6:21:6:35 | checkIdentifier | 2 | Validation.java:8:13:8:24 | charAt(...) |
+| Validation.java:6:21:6:35 | checkIdentifier | 3 | Validation.java:9:28:9:28 | c |
 | Validation.java:6:21:6:35 | checkIdentifier | 4 | Validation.java:10:32:10:58 | ... + ... |
 | Validation.java:6:21:6:35 | checkIdentifier | 4 | Validation.java:10:57:10:58 | id |

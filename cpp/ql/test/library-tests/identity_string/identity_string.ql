@@ -6,10 +6,11 @@ abstract class CheckCall extends FunctionCall {
 
   final string getExpectedString() {
     exists(int lastArgIndex |
-      lastArgIndex = getNumberOfArguments() - 1 and
+      lastArgIndex = this.getNumberOfArguments() - 1 and
       (
-        result = getArgument(lastArgIndex).getValue() or
-        not exists(getArgument(lastArgIndex).getValue()) and result = "<missing>"
+        result = this.getArgument(lastArgIndex).getValue()
+        or
+        not exists(this.getArgument(lastArgIndex).getValue()) and result = "<missing>"
       )
     )
   }
@@ -19,58 +20,53 @@ abstract class CheckCall extends FunctionCall {
 
 class CheckTypeCall extends CheckCall {
   CheckTypeCall() {
-    getTarget().(FunctionTemplateInstantiation).getTemplate().hasGlobalName("check_type")
+    this.getTarget().(FunctionTemplateInstantiation).getTemplate().hasGlobalName("check_type")
   }
 
   override string getActualString() {
-    result = getTypeIdentityString(getSpecifiedType()) or
-    not exists(getTypeIdentityString(getSpecifiedType())) and result = "<missing>"
+    result = getTypeIdentityString(this.getSpecifiedType())
+    or
+    not exists(getTypeIdentityString(this.getSpecifiedType())) and result = "<missing>"
   }
 
-  override string explain() {
-    result = getSpecifiedType().explain()
-  }
+  override string explain() { result = this.getSpecifiedType().explain() }
 
-  final Type getSpecifiedType() {
-    result = getTarget().getTemplateArgument(0)
-  }
+  final Type getSpecifiedType() { result = this.getTarget().getTemplateArgument(0) }
 }
 
 class CheckFuncCall extends CheckCall {
   CheckFuncCall() {
-    getTarget().(FunctionTemplateInstantiation).getTemplate().hasGlobalName("check_func")
+    this.getTarget().(FunctionTemplateInstantiation).getTemplate().hasGlobalName("check_func")
   }
 
   override string getActualString() {
-    result = getIdentityString(getSpecifiedFunction()) or
-    not exists(getIdentityString(getSpecifiedFunction())) and result = "<missing>"
+    result = getIdentityString(this.getSpecifiedFunction())
+    or
+    not exists(getIdentityString(this.getSpecifiedFunction())) and result = "<missing>"
   }
 
-  override string explain() {
-    result = getSpecifiedFunction().toString()
-  }
+  override string explain() { result = this.getSpecifiedFunction().toString() }
 
   final Function getSpecifiedFunction() {
-    result = getArgument(0).(FunctionAccess).getTarget()
+    result = this.getArgument(0).(FunctionAccess).getTarget()
   }
 }
 
 class CheckVarCall extends CheckCall {
   CheckVarCall() {
-    getTarget().(FunctionTemplateInstantiation).getTemplate().hasGlobalName("check_var")
+    this.getTarget().(FunctionTemplateInstantiation).getTemplate().hasGlobalName("check_var")
   }
 
   override string getActualString() {
-    result = getIdentityString(getSpecifiedVariable()) or
-    not exists(getIdentityString(getSpecifiedVariable())) and result = "<missing>"
+    result = getIdentityString(this.getSpecifiedVariable())
+    or
+    not exists(getIdentityString(this.getSpecifiedVariable())) and result = "<missing>"
   }
 
-  override string explain() {
-    result = getSpecifiedVariable().toString()
-  }
+  override string explain() { result = this.getSpecifiedVariable().toString() }
 
   final Variable getSpecifiedVariable() {
-    result = getArgument(0).(VariableAccess).getTarget()
+    result = this.getArgument(0).(VariableAccess).getTarget()
   }
 }
 
@@ -80,7 +76,7 @@ private string normalizeLambdas(string s) {
 }
 
 from CheckCall call, string expected, string actual
-where 
+where
   expected = call.getExpectedString() and
   actual = normalizeLambdas(call.getActualString()) and
   expected != actual

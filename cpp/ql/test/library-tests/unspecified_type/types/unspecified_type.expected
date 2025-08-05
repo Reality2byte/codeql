@@ -1,6 +1,7 @@
 | file://:0:0:0:0 | ..()(..) | ..()(..) |
 | file://:0:0:0:0 | ..(*)(..) | ..(*)(..) |
 | file://:0:0:0:0 | Tmpl<T> | Tmpl<T> |
+| file://:0:0:0:0 | _Complex _Float16 | _Complex _Float16 |
 | file://:0:0:0:0 | _Complex __float128 | _Complex __float128 |
 | file://:0:0:0:0 | _Complex double | _Complex double |
 | file://:0:0:0:0 | _Complex float | _Complex float |
@@ -8,12 +9,12 @@
 | file://:0:0:0:0 | _Decimal32 | _Decimal32 |
 | file://:0:0:0:0 | _Decimal64 | _Decimal64 |
 | file://:0:0:0:0 | _Decimal128 | _Decimal128 |
+| file://:0:0:0:0 | _Float16 | _Float16 |
 | file://:0:0:0:0 | _Float32 | _Float32 |
 | file://:0:0:0:0 | _Float32x | _Float32x |
 | file://:0:0:0:0 | _Float64 | _Float64 |
 | file://:0:0:0:0 | _Float64x | _Float64x |
 | file://:0:0:0:0 | _Float128 | _Float128 |
-| file://:0:0:0:0 | _Float128x | _Float128x |
 | file://:0:0:0:0 | _Imaginary double | _Imaginary double |
 | file://:0:0:0:0 | _Imaginary float | _Imaginary float |
 | file://:0:0:0:0 | _Imaginary long double | _Imaginary long double |
@@ -24,6 +25,7 @@
 | file://:0:0:0:0 | auto | auto |
 | file://:0:0:0:0 | bool | bool |
 | file://:0:0:0:0 | char | char |
+| file://:0:0:0:0 | char8_t | char8_t |
 | file://:0:0:0:0 | char16_t | char16_t |
 | file://:0:0:0:0 | char32_t | char32_t |
 | file://:0:0:0:0 | const __va_list_tag | __va_list_tag |

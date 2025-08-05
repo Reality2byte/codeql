@@ -3,6 +3,7 @@
  * @description Untrusted XML is read with an insecure resolver and DTD processing enabled.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.1
  * @precision high
  * @id cs/xml/insecure-dtd-handling
  * @tags security
@@ -12,11 +13,11 @@
  */
 
 import csharp
-import semmle.code.csharp.security.dataflow.XMLEntityInjection::XMLEntityInjection
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.XMLEntityInjectionQuery
+import XmlEntityInjection::PathGraph
 
-from TaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
+from XmlEntityInjection::PathNode source, XmlEntityInjection::PathNode sink
+where XmlEntityInjection::flowPath(source, sink)
 select sink.getNode(), source, sink,
-  "$@ flows to here and is loaded insecurely as XML (" + sink.getNode().(Sink).getReason() + ").",
-  source.getNode(), "User-provided value"
+  "This insecure XML processing depends on a $@ (" + sink.getNode().(Sink).getReason() + ").",
+  source.getNode(), "user-provided value"

@@ -1,13 +1,8 @@
-// semmle-extractor-options: /r:System.ComponentModel.Primitives.dll /r:System.ComponentModel.TypeConverter.dll /r:System.Data.Common.dll ${testdir}/../../../resources/stubs/EntityFramework.cs ${testdir}/../../../resources/stubs/System.Data.cs ${testdir}/../../../resources/stubs/System.Windows.cs
-
 using System;
 
 namespace System.Web.UI.WebControls
 {
-    public class TextBox
-    {
-        public string Text { get; set; }
-    }
+    public class TextBox { public string Text { get; set; } }
 }
 
 namespace Test
@@ -86,6 +81,17 @@ namespace Test
                 var query1 = "SELECT ITEM,PRICE FROM PRODUCT WHERE ITEM_CATEGORY='"
                   + box1.Text + "' ORDER BY PRICE";
                 var adapter = new SqlDataAdapter(query1, connection);
+                var result = new DataSet();
+                adapter.Fill(result);
+            }
+
+            // BAD: Text from a local textbox
+            using (var connection = new SqlConnection(connectionString))
+            {
+                var queryString = "SELECT ITEM,PRICE FROM PRODUCT WHERE ITEM_CATEGORY='"
+                  + box1.Text + "' ORDER BY PRICE";
+                var cmd = new SqlCommand(queryString);
+                var adapter = new SqlDataAdapter(cmd);
                 var result = new DataSet();
                 adapter.Fill(result);
             }

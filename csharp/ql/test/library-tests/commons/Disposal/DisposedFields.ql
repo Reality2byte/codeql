@@ -1,10 +1,10 @@
 import cil
 import semmle.code.csharp.commons.Disposal
-import Whitelist
+import semmle.code.csharp.commons.QualifiedName
 
-from CIL::Field field
+from CIL::Field field, string qualifier, string name
 where
   mayBeDisposed(field) and
-  field.getName().charAt(0) = "_" and // Filter the results a little
-  not whitelistedType(field.getDeclaringType())
-select field.getQualifiedName()
+  field.getDeclaringType().hasQualifiedName("DisposalTests", "Class1") and
+  field.hasQualifiedName(qualifier, name)
+select getQualifiedName(qualifier, name)

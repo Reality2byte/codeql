@@ -5,6 +5,7 @@
  *              is used at all times.
  * @kind problem
  * @problem.severity error
+ * @security-severity 7.5
  * @precision high
  * @id cs/web/requiressl-not-set
  * @tags security
@@ -16,35 +17,14 @@ import csharp
 import semmle.code.asp.WebConfig
 import semmle.code.csharp.frameworks.system.Web
 
-class FormsElement extends XMLElement {
-  FormsElement() {
-    this = any(SystemWebXMLElement sw).getAChild("authentication").getAChild("forms")
-  }
-
-  string getRequireSSL() { result = getAttribute("requireSSL").getValue().trim().toLowerCase() }
-
-  predicate isRequireSSL() { getRequireSSL() = "true" }
-}
-
-class HttpCookiesElement extends XMLElement {
-  HttpCookiesElement() { this = any(SystemWebXMLElement sw).getAChild("httpCookies") }
-
-  string getRequireSSL() { result = getAttribute("requireSSL").getValue().trim().toLowerCase() }
-
-  predicate isRequireSSL() {
-    getRequireSSL() = "true"
-    or
-    not getRequireSSL() = "false" and
-    exists(FormsElement forms | forms.getFile() = getFile() | forms.isRequireSSL())
-  }
-}
-
-from XMLElement element
+// the query is a subset of `cs/web/cookie-secure-not-set` and
+// should be removed once it is promoted from experimental
+from XmlElement element
 where
   element instanceof FormsElement and
-  not element.(FormsElement).isRequireSSL()
+  not element.(FormsElement).isRequireSsl()
   or
   element instanceof HttpCookiesElement and
-  not element.(HttpCookiesElement).isRequireSSL() and
+  not element.(HttpCookiesElement).isRequireSsl() and
   not any(SystemWebHttpCookie c).getSecureProperty().getAnAssignedValue().getValue() = "true"
 select element, "The 'requireSSL' attribute is not set to 'true'."

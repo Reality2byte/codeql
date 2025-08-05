@@ -14,16 +14,18 @@ import cpp
 string var(Variable v) {
   exists(int level | level = v.getType().getPointerIndirectionLevel() |
     level > 2 and
-    result = "The type of " + v.getName() + " uses " + level +
-      " levels of pointer indirection -- maximum allowed is 2."
+    result =
+      "The type of " + v.getName() + " uses " + level +
+        " levels of pointer indirection -- maximum allowed is 2."
   )
 }
 
 string fun(Function f) {
   exists(int level | level = f.getType().getPointerIndirectionLevel() |
     level > 2 and
-    result = "The return type of " + f.getName() + " uses " + level +
-      " levels of pointer indirection -- maximum allowed is 2."
+    result =
+      "The return type of " + f.getName() + " uses " + level +
+        " levels of pointer indirection -- maximum allowed is 2."
   )
 }
 

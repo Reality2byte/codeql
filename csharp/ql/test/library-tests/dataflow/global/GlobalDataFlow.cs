@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 /// <summary>
 /// All (tainted) sinks are named `sink[Param|Field|Property]N`, for some N, and all
@@ -77,17 +78,17 @@ public class DataFlow
         var sink3 = "";
         ReturnRef(sink2, ref sink3, ref sink3);
         Check(sink3);
-        var sink13 = ((IEnumerable<string>)new string[] { sink3 }).SelectEven(x => x);
+        var sink13 = ((IEnumerable<string>)new string[] { sink3 }).SelectEven(x => x).First();
         Check(sink13);
-        var sink14 = ((IEnumerable<string>)new string[] { sink13.First() }).Select(ReturnCheck);
+        var sink14 = ((IEnumerable<string>)new string[] { sink13 }).Select(ReturnCheck).First();
         Check(sink14);
-        var sink15 = ((IEnumerable<string>)new string[] { sink14.First() }).Zip(((IEnumerable<string>)new string[] { "" }), (x, y) => x);
+        var sink15 = ((IEnumerable<string>)new string[] { sink14 }).Zip(((IEnumerable<string>)new string[] { "" }), (x, y) => x).First();
         Check(sink15);
-        var sink16 = ((IEnumerable<string>)new string[] { "" }).Zip(((IEnumerable<string>)new string[] { sink15.First() }), (x, y) => y);
+        var sink16 = ((IEnumerable<string>)new string[] { "" }).Zip(((IEnumerable<string>)new string[] { sink15 }), (x, y) => y).First();
         Check(sink16);
-        var sink17 = sink14.Aggregate("", (acc, s) => acc + s, x => x);
+        var sink17 = ((IEnumerable<string>)new string[] { sink14 }).Aggregate("", (acc, s) => acc + s, x => x);
         Check(sink17);
-        var sink18 = ((IEnumerable<string>)new string[] { "" }).Aggregate(sink14.First(), (acc, s) => acc + s, x => x);
+        var sink18 = ((IEnumerable<string>)new string[] { "" }).Aggregate(sink14, (acc, s) => acc + s, x => x);
         Check(sink18);
         int sink21;
         Int32.TryParse(sink18, out sink21);
@@ -95,13 +96,16 @@ public class DataFlow
         bool sink22;
         bool.TryParse(sink18, out sink22);
         Check(sink22);
+        int sink21b;
+        Int32.TryParse(sink18, System.Globalization.NumberStyles.None, null, out sink21b);
+        Check(sink21b);
 
         // Flow through a callable that returns the argument (non-delegate), not tainted
         var nonSink0 = Return("");
         Check(nonSink0);
         nonSink0 = (string)typeof(DataFlow).GetMethod("Return").Invoke(null, new object[] { nonSink0 });
         Check(nonSink0);
-        ReturnOut("", out nonSink0, out var _);
+        ReturnOut("", out nonSink0, out string _);
         Check(nonSink0);
         ReturnOut(sink1, out var _, out nonSink0);
         Check(nonSink0);
@@ -109,19 +113,19 @@ public class DataFlow
         Check(nonSink0);
         ReturnRef(sink1, ref sink1, ref nonSink0);
         Check(nonSink0);
-        var nonSink1 = ((IEnumerable<string>)new string[] { nonSink0 }).SelectEven(x => x);
-        Check(nonSink1);
-        nonSink1 = ((IEnumerable<string>)new string[] { nonSink0 }).Select(x => x);
-        Check(nonSink1);
-        nonSink1 = ((IEnumerable<string>)new string[] { sink14.First() }).Zip(((IEnumerable<string>)new string[] { "" }), (x, y) => y);
-        Check(nonSink1);
-        nonSink1 = ((IEnumerable<string>)new string[] { "" }).Zip(((IEnumerable<string>)new string[] { sink15.First() }), (x, y) => x);
-        Check(nonSink1);
-        nonSink0 = sink14.Aggregate("", (acc, s) => acc, x => x);
+        nonSink0 = ((IEnumerable<string>)new string[] { nonSink0 }).SelectEven(x => x).First();
         Check(nonSink0);
-        nonSink0 = sink14.Aggregate("", (acc, s) => acc + s, x => "");
+        nonSink0 = ((IEnumerable<string>)new string[] { nonSink0 }).Select(x => x).First();
         Check(nonSink0);
-        nonSink0 = nonSink1.Aggregate(sink1, (acc, s) => s, x => x);
+        nonSink0 = ((IEnumerable<string>)new string[] { sink14 }).Zip(((IEnumerable<string>)new string[] { "" }), (x, y) => y).First();
+        Check(nonSink0);
+        nonSink0 = ((IEnumerable<string>)new string[] { "" }).Zip(((IEnumerable<string>)new string[] { sink15 }), (x, y) => x).First();
+        Check(nonSink0);
+        nonSink0 = ((IEnumerable<string>)new string[] { sink14 }).Aggregate("", (acc, s) => acc, x => x);
+        Check(nonSink0);
+        nonSink0 = ((IEnumerable<string>)new string[] { sink14 }).Aggregate("", (acc, s) => acc + s, x => "");
+        Check(nonSink0);
+        nonSink0 = ((IEnumerable<string>)new string[] { nonSink0 }).Aggregate(sink1, (acc, s) => s, x => x);
         Check(nonSink0);
         int nonSink2;
         Int32.TryParse(nonSink0, out nonSink2);
@@ -158,7 +162,7 @@ public class DataFlow
         var sink8 = "";
         OutRef(ref sink8);
         Check(sink8);
-        var sink12 = OutYield();
+        var sink12 = OutYield().First();
         Check(sink12);
         var sink23 = TaintedParam(nonSink0); // even though the argument is not tainted, the parameter is considered tainted
         Check(sink23);
@@ -202,31 +206,50 @@ public class DataFlow
         Check(nonSink0);
     }
 
-    public void M2(IQueryable<string> tainted, IQueryable<string> notTainted)
+    public void M2()
     {
+        IQueryable<string> tainted = new[] { "taint source" }.AsQueryable();
+        IQueryable<string> notTainted = new[] { "not tainted" }.AsQueryable();
         // Flow into a callable via library call, tainted
         Func<string, string> f1 = sinkParam10 => { Check(sinkParam10); return sinkParam10; };
         System.Linq.Expressions.Expression<Func<string, string>> f2 = x => ReturnCheck2(x);
-        var sink24 = tainted.Select(f1);
+        var sink24 = tainted.Select(f1).First();
         Check(sink24);
-        var sink25 = tainted.Select(f2);
+        var sink25 = tainted.Select(f2).First();
         Check(sink25);
-        var sink26 = tainted.Select(ReturnCheck3);
+        var sink26 = tainted.Select(ReturnCheck3).First();
         Check(sink26);
 
         // Flow into a callable via library call, not tainted
         Func<string, string> f3 = nonSinkParam => { Check(nonSinkParam); return nonSinkParam; };
         System.Linq.Expressions.Expression<Func<string, string>> f4 = x => NonReturnCheck(x);
-        var nonSink = notTainted.Select(f1);
+        var nonSink = notTainted.Select(f1).First();
         Check(nonSink);
-        nonSink = notTainted.Select(f2);
+        nonSink = notTainted.Select(f2).First();
         Check(nonSink);
-        nonSink = notTainted.Select(f3);
+        nonSink = notTainted.Select(f3).First();
         Check(nonSink);
-        nonSink = notTainted.Select(f4);
+        nonSink = notTainted.Select(f4).First();
         Check(nonSink);
-        nonSink = notTainted.Select(ReturnCheck3);
+        nonSink = notTainted.Select(ReturnCheck3).First();
         Check(nonSink);
+    }
+
+    public async void M3()
+    {
+        // async await, tainted
+        var task = Task.Run(() => "taint source");
+        var sink41 = task.Result;
+        Check(sink41);
+        var sink42 = await task;
+        Check(sink42);
+
+        // async await, not tainted
+        task = Task.Run(() => "");
+        var nonSink0 = task.Result;
+        Check(nonSink0);
+        var nonSink1 = await task;
+        Check(nonSink1);
     }
 
     static void Check<T>(T x) { }
@@ -419,6 +442,127 @@ public class DataFlow
     {
         get { return ""; }
     }
+
+    static void AppendToStringBuilder(StringBuilder sb, string s)
+    {
+        sb.Append(s);
+    }
+
+    void TestStringBuilderFlow()
+    {
+        var sb = new StringBuilder();
+        AppendToStringBuilder(sb, "taint source");
+        var sink43 = sb.ToString();
+        Check(sink43);
+
+        sb.Clear();
+        var nonSink = sb.ToString();
+        Check(nonSink);
+    }
+
+    void TestStringFlow()
+    {
+        var sink44 = string.Join(",", "whatever", "taint source");
+        Check(sink44);
+
+        var nonSink = string.Join(",", "whatever", "not tainted");
+        Check(nonSink);
+    }
+
+    public void M4()
+    {
+        var task = Task.Run(() => "taint source");
+        var awaitable = task.ConfigureAwait(false);
+        var awaiter = awaitable.GetAwaiter();
+        var sink45 = awaiter.GetResult();
+        Check(sink45);
+    }
+
+    void M5(bool b)
+    {
+        void Inner(Action<string> a, bool b, string arg)
+        {
+            if (b)
+                a = s => Check(s);
+            a(arg);
+        }
+
+        Inner(_ => { }, b, "taint source");
+    }
+
+    public class SimpleClass
+    {
+        public string field = "";
+    }
+
+    private void TaintField(SimpleClass sc)
+    {
+        sc.field = "taint source";
+    }
+
+    public void M6(bool b1, bool b2, bool b3)
+    {
+        var x1 = new SimpleClass();
+        var x2 = new SimpleClass();
+        TaintField(b1 ? x1 : x2);
+        Check(x1.field);
+        Check(x2.field);
+
+        var y1 = new SimpleClass();
+        var y2 = new SimpleClass();
+        var y3 = new SimpleClass();
+        TaintField(b2 ? (b3 ? y1 : y2) : y3);
+        Check(y1.field);
+        Check(y2.field);
+        Check(y3.field);
+    }
+
+    private class SubSimpleClass : SimpleClass { }
+
+    public void M7()
+    {
+        var x = new SubSimpleClass();
+        TaintField((SimpleClass)x);
+        Check(x.field);
+    }
+
+    public void M8(SimpleClass x)
+    {
+        var y = new SimpleClass();
+        TaintField(x ?? y);
+        Check(x.field);
+        Check(y.field);
+    }
+
+    public void M9(string choice)
+    {
+        var x = new SimpleClass();
+        var y = new SimpleClass();
+        var z = new SimpleClass();
+        TaintField(choice switch
+        {
+            "x" => x,
+            "y" => y,
+            _ => z
+        });
+        Check(x.field);
+        Check(y.field);
+        Check(z.field);
+    }
+
+    public void M10(SimpleClass? sc)
+    {
+        TaintField(sc!);
+        Check(sc.field);
+    }
+
+    public void M11()
+    {
+        SimpleClass y = null;
+        var x = new SimpleClass();
+        TaintField(y = x);
+        Check(x.field);
+    }
 }
 
 static class IEnumerableExtensions
@@ -432,5 +576,3 @@ static class IEnumerableExtensions
         }
     }
 }
-
-// semmle-extractor-options: /r:System.Diagnostics.Process.dll /r:System.Linq.dll /r:System.Linq.Expressions.dll /r:System.Linq.Queryable.dll /r:System.ComponentModel.Primitives.dll

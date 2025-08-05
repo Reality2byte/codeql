@@ -4,6 +4,7 @@
  * @kind problem
  * @id cpp/file-never-closed
  * @problem.severity warning
+ * @security-severity 7.8
  * @tags efficiency
  *       security
  *       external/cwe/cwe-775
@@ -13,4 +14,4 @@ import FileClosed
 
 from Expr alloc
 where fopenCall(alloc) and not fopenCallMayBeClosed(alloc)
-select alloc, "The file is never closed"
+select alloc, "The file is never closed."

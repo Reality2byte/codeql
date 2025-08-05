@@ -8,10 +8,11 @@
 | addressOf.cpp:31:23:31:23 | i | addressOf.cpp:37:18:37:26 | & ... | addressOf.cpp:38:20:38:20 | i |
 | addressOf.cpp:31:23:31:23 | i | addressOf.cpp:38:18:38:30 | ... + ... | addressOf.cpp:40:15:40:15 | i |
 | addressOf.cpp:40:8:40:11 | iref | addressOf.cpp:40:15:40:15 | i | addressOf.cpp:42:19:42:22 | iref |
-| addressOf.cpp:47:8:47:9 | f1 | addressOf.cpp:47:13:47:31 | [...](...){...} | addressOf.cpp:48:3:48:4 | f1 |
-| addressOf.cpp:49:8:49:9 | f2 | addressOf.cpp:49:13:49:39 | [...](...){...} | addressOf.cpp:50:3:50:4 | f2 |
+| addressOf.cpp:47:8:47:9 | f1 | addressOf.cpp:47:12:47:31 | [...](...){...} | addressOf.cpp:48:3:48:4 | f1 |
+| addressOf.cpp:49:8:49:9 | f2 | addressOf.cpp:49:12:49:39 | [...](...){...} | addressOf.cpp:50:3:50:4 | f2 |
 | addressOf.cpp:56:7:56:7 | a | addressOf.cpp:56:13:56:28 | {...} | addressOf.cpp:57:19:57:19 | a |
 | addressOf.cpp:56:7:56:7 | a | addressOf.cpp:57:18:57:45 | ... + ... | addressOf.cpp:58:18:58:18 | a |
+| addressOf.cpp:76:7:76:7 | x | addressOf.cpp:76:10:76:11 | 0 | addressOf.cpp:77:27:77:27 | x |
 | indirect_use.cpp:20:10:20:10 | p | indirect_use.cpp:20:14:20:15 | ip | indirect_use.cpp:21:17:21:17 | p |
 | indirect_use.cpp:25:10:25:10 | p | indirect_use.cpp:25:14:25:19 | ... + ... | indirect_use.cpp:26:5:26:5 | p |
 | indirect_use.cpp:25:10:25:10 | p | indirect_use.cpp:26:5:26:7 | ... -- | indirect_use.cpp:27:17:27:17 | p |
@@ -74,6 +75,12 @@
 | pass_by_ref.cpp:46:7:46:7 | i | pass_by_ref.cpp:46:11:46:11 | n | pass_by_ref.cpp:53:22:53:22 | i |
 | pass_by_ref.cpp:46:7:46:7 | i | pass_by_ref.cpp:49:5:49:7 | ... ++ | pass_by_ref.cpp:53:22:53:22 | i |
 | pass_by_ref.cpp:46:7:46:7 | i | pass_by_ref.cpp:53:22:53:22 | i | pass_by_ref.cpp:54:10:54:10 | i |
+| pass_by_ref.cpp:60:7:60:7 | x | pass_by_ref.cpp:60:10:60:11 | 2 | pass_by_ref.cpp:61:35:61:35 | x |
+| pass_by_ref.cpp:60:7:60:7 | x | pass_by_ref.cpp:61:34:61:35 | & ... | pass_by_ref.cpp:62:10:62:10 | x |
+| pass_by_ref.cpp:66:8:66:8 | p | pass_by_ref.cpp:66:12:66:18 | 0 | pass_by_ref.cpp:67:34:67:34 | p |
+| pass_by_ref.cpp:66:8:66:8 | p | pass_by_ref.cpp:66:12:66:18 | 0 | pass_by_ref.cpp:68:10:68:10 | p |
+| pass_by_ref.cpp:74:7:74:7 | x | pass_by_ref.cpp:74:10:74:11 | 2 | pass_by_ref.cpp:75:36:75:36 | x |
+| pass_by_ref.cpp:74:7:74:7 | x | pass_by_ref.cpp:75:35:75:36 | & ... | pass_by_ref.cpp:76:10:76:10 | x |
 | test.cpp:4:7:4:7 | a | test.cpp:5:3:5:8 | ... = ... | test.cpp:9:7:9:7 | a |
 | test.cpp:4:7:4:7 | a | test.cpp:13:3:13:7 | ... = ... | test.cpp:14:7:14:7 | a |
 | test.cpp:4:7:4:7 | a | test.cpp:13:3:13:7 | ... = ... | test.cpp:18:7:18:7 | a |

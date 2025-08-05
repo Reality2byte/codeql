@@ -3,6 +3,7 @@
  * @description Accessing paths influenced by users can allow an attacker to access unexpected resources.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 7.5
  * @precision high
  * @id java/path-injection
  * @tags security
@@ -13,42 +14,25 @@
  */
 
 import java
-import semmle.code.java.dataflow.FlowSources
-import PathsCommon
-import DataFlow::PathGraph
+import semmle.code.java.security.PathCreation
+import semmle.code.java.security.TaintedPathQuery
+import TaintedPathFlow::PathGraph
 
-class ContainsDotDotSanitizer extends DataFlow::BarrierGuard {
-  ContainsDotDotSanitizer() {
-    this.(MethodAccess).getMethod().hasName("contains") and
-    this.(MethodAccess).getAnArgument().(StringLiteral).getValue() = ".."
-  }
-
-  override predicate checks(Expr e, boolean branch) {
-    e = this.(MethodAccess).getQualifier() and branch = false
-  }
+/**
+ * Gets the data-flow node at which to report a path ending at `sink`.
+ *
+ * Previously this query flagged alerts exclusively at `PathCreation` sites,
+ * so to avoid perturbing existing alerts, where a `PathCreation` exists we
+ * continue to report there; otherwise we report directly at `sink`.
+ */
+DataFlow::Node getReportingNode(DataFlow::Node sink) {
+  TaintedPathFlow::flowTo(sink) and
+  if exists(PathCreation pc | pc.getAnInput() = sink.asExpr())
+  then result.asExpr() = any(PathCreation pc | pc.getAnInput() = sink.asExpr())
+  else result = sink
 }
 
-class TaintedPathConfig extends TaintTracking::Configuration {
-  TaintedPathConfig() { this = "TaintedPathConfig" }
-
-  override predicate isSource(DataFlow::Node source) { source instanceof RemoteFlowSource }
-
-  override predicate isSink(DataFlow::Node sink) {
-    exists(Expr e | e = sink.asExpr() | e = any(PathCreation p).getInput() and not guarded(e))
-  }
-
-  override predicate isSanitizer(DataFlow::Node node) {
-    exists(Type t | t = node.getType() | t instanceof BoxedType or t instanceof PrimitiveType)
-  }
-
-  override predicate isSanitizerGuard(DataFlow::BarrierGuard guard) {
-    guard instanceof ContainsDotDotSanitizer
-  }
-}
-
-from DataFlow::PathNode source, DataFlow::PathNode sink, PathCreation p, TaintedPathConfig conf
-where
-  sink.getNode().asExpr() = p.getInput() and
-  conf.hasFlowPath(source, sink)
-select p, source, sink, "$@ flows to here and is used in a path.", source.getNode(),
-  "User-provided value"
+from TaintedPathFlow::PathNode source, TaintedPathFlow::PathNode sink
+where TaintedPathFlow::flowPath(source, sink)
+select getReportingNode(sink.getNode()), source, sink, "This path depends on a $@.",
+  source.getNode(), "user-provided value"

@@ -6,8 +6,8 @@ class B
     Elem *e = new Elem();
     Box1 *b1 = new Box1(e, nullptr);
     Box2 *b2 = new Box2(b1);
-    sink(b2->box1->elem1); // flow
-    sink(b2->box1->elem2); // no flow [FALSE POSITIVE] (due to flow in f2 below)
+    sink(b2->box1->elem1); // $ ast,ir
+    sink(b2->box1->elem2); // no flow
   }
 
   void f2()
@@ -15,8 +15,8 @@ class B
     Elem *e = new B::Elem();
     Box1 *b1 = new B::Box1(nullptr, e);
     Box2 *b2 = new Box2(b1);
-    sink(b2->box1->elem1); // no flow [FALSE POSITIVE] (due to flow in f1 above)
-    sink(b2->box1->elem2); // flow
+    sink(b2->box1->elem1); // no flow
+    sink(b2->box1->elem2); // $ ast,ir
   }
 
   static void sink(void *o) {}

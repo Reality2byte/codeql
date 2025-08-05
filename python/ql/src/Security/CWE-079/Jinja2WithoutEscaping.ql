@@ -4,6 +4,7 @@
  *              cause a cross-site scripting vulnerability.
  * @kind problem
  * @problem.severity error
+ * @security-severity 6.1
  * @precision medium
  * @id py/jinja2/autoescape-false
  * @tags security
@@ -11,38 +12,39 @@
  */
 
 import python
+import semmle.python.dataflow.new.DataFlow
+import semmle.python.ApiGraphs
 
-ClassObject jinja2EnvironmentOrTemplate() {
-    exists(ModuleObject jinja2, string name |
-        jinja2.getName() = "jinja2" and
-        jinja2.attr(name) = result |
-        name = "Environment" or
-        name = "Template"
-    )
+/*
+ * Jinja 2 Docs:
+ * https://jinja.palletsprojects.com/en/2.11.x/api/#jinja2.Environment
+ * https://jinja.palletsprojects.com/en/2.11.x/api/#jinja2.Template
+ *
+ * Although the docs doesn't say very clearly, autoescape is a valid argument when constructing
+ * a Template manually
+ *
+ * unsafe_tmpl = Template('Hello {{ name }}!')
+ * safe1_tmpl = Template('Hello {{ name }}!', autoescape=True)
+ */
+
+private API::Node jinja2EnvironmentOrTemplate() {
+  result = API::moduleImport("jinja2").getMember("Environment")
+  or
+  result = API::moduleImport("jinja2").getMember("Template")
 }
 
-ControlFlowNode getAutoEscapeParameter(CallNode call) {
-    exists(Object callable |
-        call.getFunction().refersTo(callable) |
-        callable = jinja2EnvironmentOrTemplate() and
-        result = call.getArgByName("autoescape")
-    )
-}
-
-from CallNode call
+from API::CallNode call
 where
-not exists(call.getNode().getStarargs()) and
-not exists(call.getNode().getKwargs()) and
-(
-    not exists(getAutoEscapeParameter(call)) and
-    exists(Object env |
-        call.getFunction().refersTo(env) and
-        env = jinja2EnvironmentOrTemplate()
-    )
+  call = jinja2EnvironmentOrTemplate().getACall() and
+  not exists(call.asCfgNode().(CallNode).getNode().getStarargs()) and
+  not exists(call.asCfgNode().(CallNode).getNode().getKwargs()) and
+  (
+    not exists(call.getArgByName("autoescape"))
     or
-    exists(Object isFalse |
-        getAutoEscapeParameter(call).refersTo(isFalse) and isFalse.booleanValue() = false
-    )
-)
-
+    call.getKeywordParameter("autoescape")
+        .getAValueReachingSink()
+        .asExpr()
+        .(ImmutableLiteral)
+        .booleanValue() = false
+  )
 select call, "Using jinja2 templates with autoescape=False can potentially allow XSS attacks."

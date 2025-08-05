@@ -30,6 +30,8 @@
 | Capture.cs:203:28:203:30 | eh2 | Capture.cs:203:28:203:45 | MyEventHandler eh2 = ... | Capture.cs:204:27:204:29 | access to local variable eh2 |
 | Capture.cs:210:24:210:24 | p | Capture.cs:210:24:210:59 | Process p = ... | Capture.cs:213:17:213:17 | access to local variable p |
 | Capture.cs:212:30:212:35 | exited | Capture.cs:212:30:212:71 | EventHandler exited = ... | Capture.cs:213:29:213:34 | access to local variable exited |
+| Capture.cs:242:13:242:13 | i | Capture.cs:242:13:242:17 | Int32 i = ... | Capture.cs:254:27:254:27 | access to local variable i |
+| Capture.cs:242:13:242:13 | i | Capture.cs:254:27:254:27 | access to local variable i | Capture.cs:255:34:255:34 | access to local variable i |
 | Consistency.cs:7:25:7:25 | b | Consistency.cs:7:25:7:25 | b | Consistency.cs:11:17:11:17 | access to parameter b |
 | Consistency.cs:15:17:15:17 | i | Consistency.cs:15:17:15:21 | Int32 i = ... | Consistency.cs:16:17:16:17 | access to local variable i |
 | Consistency.cs:25:29:25:29 | c | Consistency.cs:25:29:25:29 | Consistency c | Consistency.cs:26:13:26:13 | access to local variable c |
@@ -152,6 +154,18 @@
 | Test.cs:46:16:46:18 | in | Test.cs:46:16:46:18 | in | Test.cs:48:13:48:15 | access to parameter in |
 | Test.cs:62:16:62:16 | x | Test.cs:62:16:62:16 | x | Test.cs:66:28:66:28 | access to parameter x |
 | Test.cs:68:45:68:45 | e | Test.cs:68:45:68:45 | DivideByZeroException e | Test.cs:70:17:70:17 | access to local variable e |
+| Test.cs:76:24:76:25 | b1 | Test.cs:76:24:76:25 | b1 | Test.cs:80:13:80:14 | access to parameter b1 |
+| Test.cs:76:33:76:34 | b2 | Test.cs:76:33:76:34 | b2 | Test.cs:84:18:84:19 | access to parameter b2 |
+| Test.cs:76:42:76:43 | b3 | Test.cs:76:42:76:43 | b3 | Test.cs:90:13:90:14 | access to parameter b3 |
+| Test.cs:76:51:76:52 | b4 | Test.cs:76:51:76:52 | b4 | Test.cs:94:18:94:19 | access to parameter b4 |
+| Test.cs:76:60:76:61 | b5 | Test.cs:76:60:76:61 | b5 | Test.cs:102:13:102:14 | access to parameter b5 |
+| Test.cs:76:69:76:70 | b6 | Test.cs:76:69:76:70 | b6 | Test.cs:113:13:113:14 | access to parameter b6 |
+| Test.cs:78:13:78:13 | x | Test.cs:78:13:78:17 | Int32 x = ... | Test.cs:82:17:82:17 | access to local variable x |
+| Test.cs:78:13:78:13 | x | Test.cs:78:13:78:17 | Int32 x = ... | Test.cs:86:17:86:17 | access to local variable x |
+| Test.cs:78:13:78:13 | x | Test.cs:78:13:78:17 | Int32 x = ... | Test.cs:92:17:92:17 | access to local variable x |
+| Test.cs:78:13:78:13 | x | Test.cs:78:13:78:17 | Int32 x = ... | Test.cs:96:17:96:17 | access to local variable x |
+| Test.cs:78:13:78:13 | x | Test.cs:78:13:78:17 | Int32 x = ... | Test.cs:99:13:99:13 | access to local variable x |
+| Test.cs:78:13:78:13 | x | Test.cs:108:13:108:17 | ... = ... | Test.cs:109:17:109:17 | access to local variable x |
 | Tuples.cs:5:9:5:13 | Field | Tuples.cs:20:9:20:34 | ... = ... | Tuples.cs:22:13:22:17 | access to field Field |
 | Tuples.cs:5:9:5:13 | Field | Tuples.cs:26:9:26:33 | ... = ... | Tuples.cs:27:13:27:17 | access to field Field |
 | Tuples.cs:5:9:5:13 | Field | Tuples.cs:26:9:26:33 | ... = ... | Tuples.cs:28:13:28:19 | access to field Field |

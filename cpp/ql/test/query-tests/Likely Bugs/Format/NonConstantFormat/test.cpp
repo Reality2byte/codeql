@@ -1,6 +1,9 @@
 extern "C" int printf(const char *fmt, ...);
 extern "C" int sprintf(char *buf, const char *fmt, ...);
-extern "C" char *gettext (const char *);
+extern "C" char *gettext(const char *);
+extern "C" char *strcpy(char *dst, const char *src);
+
+#define MYSPRINTF sprintf
 
 bool gettext_debug = false;
 
@@ -94,7 +97,7 @@ int main(int argc, char **argv) {
     const char *hello = "Hello, World\n";
     const char **p = &hello;
     (*p)++;
-    printf(hello); // BAD [NOT DETECTED]
+    printf(hello); // BAD
   }
   {
     // Same as above block but through a C++ reference
@@ -109,7 +112,7 @@ int main(int argc, char **argv) {
   {
     const char *hello = "Hello, World\n";
     const char *const *p = &hello; // harmless reference to const pointer
-    printf(hello); // GOOD
+    printf(hello); // GOOD [FALSE POSITIVE]
     hello++; // modification comes after use and so does no harm
   }
   printf(argc > 2 ? "More than one\n" : _("Only one\n")); // GOOD
@@ -119,6 +122,13 @@ int main(int argc, char **argv) {
   //
   //
   printf(const_wash("Hello, World\n")); // GOOD
+
+  {
+	char buffer[1024];
+
+	MYSPRINTF(buffer, "constant"); // GOOD
+	MYSPRINTF(buffer, argv[0]); // BAD
+  }
 }
 
 const char *simple_func(const char *str) {
@@ -140,4 +150,16 @@ void print_ith_message() {
   int i;
   set_value_of(&i);
   printf(messages[i], 1U); // GOOD
+}
+
+void fmt_via_strcpy(char *data) {
+    strcpy(data, "some string");
+    printf(data); // BAD
+}
+
+void fmt_with_assignment() {
+  const char *x, *y;
+
+  x = y = "a";
+  printf(y); // GOOD
 }

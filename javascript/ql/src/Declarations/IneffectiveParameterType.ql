@@ -22,11 +22,11 @@ predicate isCommonPredefinedTypeName(string name) {
 }
 
 /**
- * Any local type declaration, excluding imported names that are not explicitly used as types.
+ * A local type declaration, excluding imported names that are not explicitly used as types.
  */
 class DefiniteTypeDecl extends TypeDecl {
   DefiniteTypeDecl() {
-    this = any(ImportSpecifier im).getLocal() implies exists(getLocalTypeName().getAnAccess())
+    this = any(ImportSpecifier im).getLocal() implies exists(this.getLocalTypeName().getAnAccess())
   }
 }
 

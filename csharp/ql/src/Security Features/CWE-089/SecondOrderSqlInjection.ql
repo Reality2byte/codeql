@@ -4,6 +4,7 @@
  *              of malicious SQL code by the user.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 8.8
  * @precision medium
  * @id cs/second-order-sql-injection
  * @tags security
@@ -11,15 +12,21 @@
  */
 
 import csharp
-import semmle.code.csharp.security.dataflow.SqlInjection
+import semmle.code.csharp.security.dataflow.SqlInjectionQuery
 import semmle.code.csharp.security.dataflow.flowsources.Stored
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import StoredSqlInjection::PathGraph
 
-class StoredTaintTrackingConfiguration extends SqlInjection::TaintTrackingConfiguration {
-  override predicate isSource(DataFlow::Node source) { source instanceof StoredFlowSource }
+module StoredSqlInjectionConfig implements DataFlow::ConfigSig {
+  predicate isSource(DataFlow::Node source) { source instanceof StoredFlowSource }
+
+  predicate isSink = SqlInjectionConfig::isSink/1;
+
+  predicate isBarrier = SqlInjectionConfig::isBarrier/1;
 }
 
-from StoredTaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "$@ flows to here and is used in an SQL query.",
-  source.getNode(), "Stored user-provided value"
+module StoredSqlInjection = TaintTracking::Global<StoredSqlInjectionConfig>;
+
+from StoredSqlInjection::PathNode source, StoredSqlInjection::PathNode sink
+where StoredSqlInjection::flowPath(source, sink)
+select sink.getNode(), source, sink, "This SQL query depends on a $@.", source.getNode(),
+  "stored user-provided value"

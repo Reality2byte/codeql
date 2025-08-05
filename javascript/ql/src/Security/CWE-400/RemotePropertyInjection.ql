@@ -4,6 +4,7 @@
  *              denial-of-service attacks.
  * @kind path-problem
  * @problem.severity warning
+ * @security-severity 7.5
  * @precision medium
  * @id js/remote-property-injection
  * @tags security
@@ -12,10 +13,10 @@
  */
 
 import javascript
-import semmle.javascript.security.dataflow.RemotePropertyInjection::RemotePropertyInjection
+import semmle.javascript.security.dataflow.RemotePropertyInjectionQuery
 import DataFlow::PathGraph
 
 from Configuration cfg, DataFlow::PathNode source, DataFlow::PathNode sink
 where cfg.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "A $@ is used as" + sink.getNode().(Sink).getMessage(),
+select sink.getNode(), source, sink, sink.getNode().(Sink).getMessage() + " depends on a $@.",
   source.getNode(), "user-provided value"

@@ -5,8 +5,8 @@ predicate useReaches(LocalScopeVariableRead read, LocalScopeVariable v, ControlF
   read.getTarget() = v and cfn = read.getAControlFlowNode().getASuccessor()
   or
   exists(ControlFlow::Node mid | useReaches(read, v, mid) |
-    not mid = any(AssignableDefinition ad | ad.getTarget() = v and ad.isCertain())
-          .getAControlFlowNode() and
+    not mid =
+      any(AssignableDefinition ad | ad.getTarget() = v and ad.isCertain()).getAControlFlowNode() and
     cfn = mid.getASuccessor()
   )
 }
@@ -28,20 +28,20 @@ private TLocalScopeVariableReadOrSsaDef getANextReadOrDef(TLocalScopeVariableRea
     or
     not exists(read.getANextRead()) and
     exists(
-      Ssa::Definition ssaDef, Ssa::PseudoDefinition pseudoDef, ControlFlow::Node cfn,
-      ControlFlow::BasicBlock bb, int i
+      Ssa::Definition ssaDef, Ssa::PhiNode phi, ControlFlow::Node cfn, ControlFlow::BasicBlock bb,
+      int i
     |
       ssaDef.getARead() = read
     |
-      pseudoDef.getAnInput() = ssaDef and
-      pseudoDef.definesAt(bb, i) and
+      phi.getAnInput() = ssaDef and
+      phi.definesAt(_, bb, i) and
       cfn = read.getAReachableElement().getAControlFlowNode() and
       (
         cfn = bb.getNode(i)
         or
         cfn = bb.getFirstNode() and i < 0
       ) and
-      result = TSsaDefinition(pseudoDef)
+      result = TSsaDefinition(phi)
     )
   )
   or
@@ -49,9 +49,9 @@ private TLocalScopeVariableReadOrSsaDef getANextReadOrDef(TLocalScopeVariableRea
     result = TLocalScopeVariableRead(ssaDef.getAFirstRead())
     or
     not exists(ssaDef.getAFirstRead()) and
-    exists(Ssa::PseudoDefinition pseudoDef |
-      pseudoDef.getAnInput() = ssaDef and
-      result = TSsaDefinition(pseudoDef)
+    exists(Ssa::PhiNode phi |
+      phi.getAnInput() = ssaDef and
+      result = TSsaDefinition(phi)
     )
   )
 }

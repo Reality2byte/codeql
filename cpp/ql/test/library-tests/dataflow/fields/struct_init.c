@@ -12,14 +12,14 @@ struct Outer {
 };
 
 void absink(struct AB *ab) {
-  sink(ab->a); // flow x3 [NOT DETECTED]
+  sink(ab->a); //$ ast,ir=20:20 ast,ir=27:7 ast,ir=40:20
   sink(ab->b); // no flow
 }
 
 int struct_init(void) {
   struct AB ab = { user_input(), 0 };
 
-  sink(ab.a); // flow
+  sink(ab.a); //$ ast,ir
   sink(ab.b); // no flow
   absink(&ab);
 
@@ -28,11 +28,20 @@ int struct_init(void) {
     &ab,
   };
 
-  sink(outer.nestedAB.a); // flow
+  sink(outer.nestedAB.a); //$ ast,ir
   sink(outer.nestedAB.b); // no flow
-  sink(outer.pointerAB->a); // flow [NOT DETECTED]
+  sink(outer.pointerAB->a); //$ ast,ir
   sink(outer.pointerAB->b); // no flow
 
   absink(&outer.nestedAB);
+}
+
+int struct_init2(void) {
+  struct AB ab = { user_input(), 0 };
+  struct Outer outer = {
+    { user_input(), 0 },
+    &ab,
+  };
+
   absink(outer.pointerAB);
 }

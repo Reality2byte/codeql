@@ -5,6 +5,7 @@
  *              command-line injection vulnerabilities.
  * @kind path-problem
  * @problem.severity warning
+ * @security-severity 6.3
  * @precision medium
  * @id js/indirect-command-line-injection
  * @tags correctness
@@ -15,7 +16,7 @@
 
 import javascript
 import DataFlow::PathGraph
-import semmle.javascript.security.dataflow.IndirectCommandInjection::IndirectCommandInjection
+import semmle.javascript.security.dataflow.IndirectCommandInjectionQuery
 
 from Configuration cfg, DataFlow::PathNode source, DataFlow::PathNode sink, DataFlow::Node highlight
 where
@@ -24,4 +25,4 @@ where
   then cfg.isSinkWithHighlight(sink.getNode(), highlight)
   else highlight = sink.getNode()
 select highlight, source, sink, "This command depends on an unsanitized $@.", source.getNode(),
-  "command-line argument"
+  source.getNode().(Source).describe()

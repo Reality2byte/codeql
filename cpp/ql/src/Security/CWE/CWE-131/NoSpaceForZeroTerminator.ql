@@ -5,6 +5,7 @@
  *              terminator can cause a buffer overrun.
  * @kind problem
  * @problem.severity error
+ * @security-severity 9.8
  * @precision high
  * @id cpp/no-space-for-terminator
  * @tags reliability
@@ -13,35 +14,30 @@
  *       external/cwe/cwe-120
  *       external/cwe/cwe-122
  */
+
 import cpp
-import semmle.code.cpp.dataflow.DataFlow
-import semmle.code.cpp.models.implementations.Memcpy
+import semmle.code.cpp.ir.dataflow.DataFlow
+import semmle.code.cpp.models.interfaces.ArrayFunction
+import semmle.code.cpp.models.interfaces.Allocation
+import semmle.code.cpp.commons.NullTermination
 
-class MallocCall extends FunctionCall
-{
-  MallocCall() {
-  	this.getTarget().hasGlobalName("malloc") or
-  	this.getTarget().hasQualifiedName("std", "malloc")
-  }
-
-  Expr getAllocatedSize() {
-    if this.getArgument(0) instanceof VariableAccess then
-      exists(LocalScopeVariable v, ControlFlowNode def |
-        definitionUsePair(v, def, this.getArgument(0)) and
-        exprDefinition(v, def, result))
-    else
-      result = this.getArgument(0)
-  }
-}
-
-predicate terminationProblem(MallocCall malloc, string msg) {
-  malloc.getAllocatedSize() instanceof StrlenCall and
-  not exists(DataFlow::Node def, DataFlow::Node use, FunctionCall fc, MemcpyFunction memcpy, int ix |
-    DataFlow::localFlow(def, use) and
-    def.asExpr() = malloc and
-    fc.getTarget() = memcpy and
-    memcpy.hasArrayOutput(ix) and
-    use.asExpr() = fc.getArgument(ix)
+predicate terminationProblem(HeuristicAllocationExpr malloc, string msg) {
+  // malloc(strlen(...))
+  exists(StrlenCall strlen | DataFlow::localExprFlow(strlen, malloc.getSizeExpr())) and
+  // flows to a call that implies this is a null-terminated string
+  exists(ArrayFunction af, FunctionCall fc, int arg |
+    DataFlow::localExprFlow(malloc, fc.getArgument(arg)) and
+    fc.getTarget() = af and
+    (
+      // flows into null terminated string argument
+      af.hasArrayWithNullTerminator(arg)
+      or
+      // flows into likely null terminated string argument (such as `strcpy`, `strcat`)
+      af.hasArrayWithUnknownSize(arg)
+      or
+      // flows into string argument to a formatting function (such as `printf`)
+      formatArgumentMustBeNullTerminated(fc, fc.getArgument(arg))
+    )
   ) and
   msg = "This allocation does not include space to null-terminate the string."
 }

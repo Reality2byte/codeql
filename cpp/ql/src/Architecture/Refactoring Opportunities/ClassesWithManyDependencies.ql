@@ -4,9 +4,6 @@
  * @kind problem
  * @id cpp/architecture/classes-with-many-dependencies
  * @problem.severity recommendation
- * @workingset jhotdraw
- * @result succeed 20
- * @result_ondemand succeed 20
  * @tags maintainability
  *       statistical
  *       non-attributable
@@ -19,4 +16,4 @@ where
   t.fromSource() and
   n = t.getMetrics().getEfferentSourceCoupling() and
   n > 10
-select t as Class, "This class has too many dependencies (" + n.toString() + ")"
+select t as class_, "This class has too many dependencies (" + n.toString() + ")."

@@ -4,17 +4,20 @@
  *              malicious code by the user.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 8.8
  * @precision high
  * @id java/sql-injection
  * @tags security
  *       external/cwe/cwe-089
+ *       external/cwe/cwe-564
  */
 
-import semmle.code.java.Expr
+import java
 import semmle.code.java.dataflow.FlowSources
-import SqlInjectionLib
-import DataFlow::PathGraph
+import semmle.code.java.security.SqlInjectionQuery
+import QueryInjectionFlow::PathGraph
 
-from QueryInjectionSink query, DataFlow::PathNode source, DataFlow::PathNode sink
-where queryTaintedBy(query, source, sink)
-select query, source, sink, "Query might include code from $@.", source.getNode(), "this user input"
+from
+  QueryInjectionSink query, QueryInjectionFlow::PathNode source, QueryInjectionFlow::PathNode sink
+where queryIsTaintedBy(query, source, sink)
+select query, source, sink, "This query depends on a $@.", source.getNode(), "user-provided value"

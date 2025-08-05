@@ -4,6 +4,7 @@
  *              execute arbitrary code.
  * @kind path-problem
  * @problem.severity warning
+ * @security-severity 9.8
  * @precision high
  * @id js/unsafe-deserialization
  * @tags security
@@ -11,9 +12,10 @@
  */
 
 import javascript
-import semmle.javascript.security.dataflow.UnsafeDeserialization::UnsafeDeserialization
+import semmle.javascript.security.dataflow.UnsafeDeserializationQuery
 import DataFlow::PathGraph
 
 from Configuration cfg, DataFlow::PathNode source, DataFlow::PathNode sink
 where cfg.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "Unsafe deserialization of $@.", source.getNode(), "user input"
+select sink.getNode(), source, sink, "Unsafe deserialization depends on a $@.", source.getNode(),
+  "user-provided value"

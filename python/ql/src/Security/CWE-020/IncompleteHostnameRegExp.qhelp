@@ -6,7 +6,7 @@
     <overview>
         <p>
 
-            Sanitizing untrusted URLs is an important technique for
+            Sanitizing untrusted URLs is a common technique for
             preventing attacks such as request forgeries and malicious
             redirections. Often, this is done by checking that the host of a URL
             is in a set of allowed hosts.
@@ -30,7 +30,7 @@
         <p>
 
             Escape all meta-characters appropriately when constructing
-            regular expressions for security checks, pay special attention to the
+            regular expressions for security checks, and pay special attention to the
             <code>.</code> meta-character.
 
         </p>
@@ -64,6 +64,6 @@
 
     <references>
         <li>OWASP: <a href="https://www.owasp.org/index.php/Server_Side_Request_Forgery">SSRF</a></li>
-        <li>OWASP: <a href="https://www.owasp.org/index.php/Unvalidated_Redirects_and_Forwards_Cheat_Sheet">XSS Unvalidated Redirects and Forwards Cheat Sheet</a>.</li>
+        <li>OWASP: <a href="https://cheatsheetseries.owasp.org/cheatsheets/Unvalidated_Redirects_and_Forwards_Cheat_Sheet.html">XSS Unvalidated Redirects and Forwards Cheat Sheet</a>.</li>
     </references>
 </qhelp>

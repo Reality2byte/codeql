@@ -1,5 +1,6 @@
-using Semmle.Util.Logging;
+using System;
 using Semmle.Util;
+using Semmle.Util.Logging;
 
 namespace Semmle.Extraction
 {
@@ -12,44 +13,49 @@ namespace Semmle.Extraction
         /// <summary>
         /// The specified number of threads, or the default if unspecified.
         /// </summary>
-        public int Threads = Extractor.DefaultNumberOfThreads;
+        public int Threads { get; private set; } = EnvironmentVariables.GetDefaultNumberOfThreads();
 
         /// <summary>
         /// The verbosity used in output and logging.
         /// </summary>
-        public Verbosity Verbosity = Verbosity.Info;
+        public Verbosity Verbosity { get; protected set; } = Verbosity.Info;
 
         /// <summary>
         /// Whether to output to the console.
         /// </summary>
-        public bool Console = false;
+        public bool Console { get; private set; } = false;
 
         /// <summary>
         /// Holds if CIL should be extracted.
         /// </summary>
-        public bool CIL = false;
+        public bool CIL { get; private set; } = true;
 
         /// <summary>
         /// Holds if assemblies shouldn't be extracted twice.
         /// </summary>
-        public bool Cache = true;
+        public bool Cache { get; private set; } = true;
 
         /// <summary>
         /// Whether to extract PDB information.
         /// </summary>
-        public bool PDB = false;
+        public bool PDB { get; private set; } = false;
 
         /// <summary>
         /// Whether "fast extraction mode" has been enabled.
         /// </summary>
-        public bool Fast = false;
+        public bool Fast { get; private set; } = false;
+
+        /// <summary>
+        /// Whether extraction is done using `codeql test run`.
+        /// </summary>
+        public bool QlTest { get; private set; } = false;
 
         /// <summary>
         /// The compression algorithm used for trap files.
         /// </summary>
-        public TrapWriter.CompressionMode TrapCompression = TrapWriter.CompressionMode.Gzip;
+        public TrapWriter.CompressionMode TrapCompression { get; private set; } = TrapWriter.CompressionMode.Brotli;
 
-        public virtual bool handleOption(string key, string value)
+        public virtual bool HandleOption(string key, string value)
         {
             switch (key)
             {
@@ -59,17 +65,31 @@ namespace Semmle.Extraction
                 case "verbosity":
                     Verbosity = (Verbosity)int.Parse(value);
                     return true;
+                case "trap_compression":
+                    if (Enum.TryParse<TrapWriter.CompressionMode>(value, true, out var mode))
+                    {
+                        TrapCompression = mode;
+                        return true;
+                    }
+                    return false;
+                case "cil":
+                    CIL = Boolean.Parse(value);
+                    return true;
                 default:
                     return false;
             }
         }
 
-        public abstract bool handleArgument(string argument);
+        public abstract bool HandleArgument(string argument);
 
-        public virtual bool handleFlag(string flag, bool value)
+        public virtual bool HandleFlag(string flag, bool value)
         {
             switch (flag)
             {
+                case "silent":
+                    if (value)
+                        Verbosity = Verbosity.Off;
+                    return true;
                 case "verbose":
                     Verbosity = value ? Verbosity.Debug : Verbosity.Error;
                     return true;
@@ -79,9 +99,6 @@ namespace Semmle.Extraction
                 case "cache":
                     Cache = value;
                     return true;
-                case "cil":
-                    CIL = value;
-                    return true;
                 case "pdb":
                     PDB = value;
                     CIL = true;
@@ -90,14 +107,14 @@ namespace Semmle.Extraction
                     CIL = !value;
                     Fast = value;
                     return true;
-                case "brotli":
-                    TrapCompression = value ? TrapWriter.CompressionMode.Brotli : TrapWriter.CompressionMode.Gzip;
+                case "qltest":
+                    QlTest = value;
                     return true;
                 default:
                     return false;
             }
         }
 
-        public abstract void invalidArgument(string argument);
+        public abstract void InvalidArgument(string argument);
     }
 }

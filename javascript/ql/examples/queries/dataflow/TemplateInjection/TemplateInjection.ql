@@ -2,6 +2,7 @@
  * @name Template injection
  * @description Tracks user-controlled values to an unescaped lodash template placeholder.
  * @kind path-problem
+ * @problem.severity error
  * @tags security
  * @id js/examples/template-injection
  */
@@ -13,7 +14,7 @@ import DataFlow::PathGraph
 /**
  * Gets the name of an unescaped placeholder in a lodash template.
  *
- * For example, the string `<h1><%= title %></h1>` contains the placeholder `title`.
+ * For example, the string `"<h1><%= title %></h1>"` contains the placeholder "title".
  */
 bindingset[s]
 string getAPlaceholderInString(string s) {

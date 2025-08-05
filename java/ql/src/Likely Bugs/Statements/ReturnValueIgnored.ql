@@ -18,7 +18,7 @@ import Chaining
 
 predicate checkedMethodCall(MethodAccess ma) {
   relevantMethodCall(ma, _) and
-  not ma.getParent() instanceof ExprStmt
+  not ma instanceof ValueDiscardingExpr
 }
 
 /**
@@ -34,12 +34,12 @@ predicate isMockingMethod(Method m) {
 }
 
 predicate isReceiverClauseMethod(Method m) {
-  m.getDeclaringType().getASupertype*().hasQualifiedName("org.jmock.syntax", "ReceiverClause") and
+  m.getDeclaringType().getAnAncestor().hasQualifiedName("org.jmock.syntax", "ReceiverClause") and
   m.hasName("of")
 }
 
 predicate isCardinalityClauseMethod(Method m) {
-  m.getDeclaringType().getASupertype*().hasQualifiedName("org.jmock.syntax", "CardinalityClause") and
+  m.getDeclaringType().getAnAncestor().hasQualifiedName("org.jmock.syntax", "CardinalityClause") and
   (
     m.hasName("allowing") or
     m.hasName("ignoring") or
@@ -54,7 +54,7 @@ predicate isCardinalityClauseMethod(Method m) {
 }
 
 predicate isStubberMethod(Method m) {
-  m.getDeclaringType().getASupertype*().hasQualifiedName("org.mockito.stubbing", "Stubber") and
+  m.getDeclaringType().getAnAncestor().hasQualifiedName("org.mockito.stubbing", "Stubber") and
   (
     m.hasName("when") or
     m.hasName("doThrow") or
@@ -69,16 +69,17 @@ predicate isStubberMethod(Method m) {
  * Some mocking methods must _always_ be used as a qualifier.
  */
 predicate isMustBeQualifierMockingMethod(Method m) {
-  m.getDeclaringType().getASupertype*().hasQualifiedName("org.mockito", "Mockito") and
+  m.getDeclaringType().getAnAncestor().hasQualifiedName("org.mockito", "Mockito") and
   m.hasName("verify")
 }
 
 predicate relevantMethodCall(MethodAccess ma, Method m) {
   // For "return value ignored", all method calls are relevant.
+  not ma.getFile().isKotlinSourceFile() and
   ma.getMethod() = m and
   not m.getReturnType().hasName("void") and
   (not isMockingMethod(m) or isMustBeQualifierMockingMethod(m)) and
-  not isMockingMethod(ma.getQualifier().getProperExpr().(MethodAccess).getMethod())
+  not isMockingMethod(ma.getQualifier().(MethodAccess).getMethod())
 }
 
 predicate methodStats(Method m, int used, int total, int percentage) {
@@ -88,7 +89,8 @@ predicate methodStats(Method m, int used, int total, int percentage) {
 }
 
 int chainedUses(Method m) {
-  result = count(MethodAccess ma, MethodAccess qual |
+  result =
+    count(MethodAccess ma, MethodAccess qual |
       ma.getMethod() = m and
       ma.getQualifier() = qual and
       qual.getMethod() = m

@@ -1,107 +1,69 @@
 using System;
 using System.IO;
 using Microsoft.CodeAnalysis;
-using Semmle.Extraction.Entities;
 
 namespace Semmle.Extraction.CSharp.Entities
 {
-    class LocalVariable : CachedSymbol<ISymbol>
+    internal class LocalVariable : CachedSymbol<ISymbol>
     {
-        LocalVariable(Context cx, ISymbol init, Expression parent, bool isVar, Extraction.Entities.Location declLocation)
-            : base(cx, init)
+        private LocalVariable(Context cx, ISymbol init) : base(cx, init) { }
+
+        public override void WriteId(EscapingTextWriter trapFile)
         {
-            Parent = parent;
-            IsVar = isVar;
-            DeclLocation = declLocation;
+            throw new InvalidOperationException();
         }
 
-        readonly Expression Parent;
-        readonly bool IsVar;
-        readonly Extraction.Entities.Location DeclLocation;
-
-        public override void WriteId(TextWriter trapFile)
+        public sealed override void WriteQuotedId(EscapingTextWriter trapFile)
         {
-            trapFile.WriteSubId(Parent);
-            trapFile.Write('_');
-            trapFile.Write(symbol.Name);
-            trapFile.Write(";localvar");
+            trapFile.Write('*');
         }
 
-        public override void Populate(TextWriter trapFile)
+        public override void Populate(TextWriter trapFile) { }
+
+        public void PopulateManual(Expression parent, bool isVar)
         {
-            if (symbol is ILocalSymbol local)
+            var trapFile = Context.TrapWriter.Writer;
+            var @var = isVar ? 1 : 0;
+
+            if (Symbol is ILocalSymbol local)
             {
-                PopulateNullability(trapFile, local.NullableAnnotation);
+                var kind = local.IsRef ? Kinds.VariableKind.Ref : local.IsConst ? Kinds.VariableKind.Const : Kinds.VariableKind.None;
+                var type = local.GetAnnotatedType();
+                trapFile.localvars(this, kind, Symbol.Name, @var, Type.Create(Context, type).TypeRef, parent);
+
+                PopulateNullability(trapFile, local.GetAnnotatedType());
+                PopulateScopedKind(trapFile, local.ScopedKind);
                 if (local.IsRef)
                     trapFile.type_annotation(this, Kinds.TypeAnnotation.Ref);
             }
+            else
+            {
+                trapFile.localvars(this, Kinds.VariableKind.None, Symbol.Name, @var, Type.Create(Context, parent.Type).TypeRef, parent);
+            }
 
-            trapFile.localvars(
-                this,
-                IsRef ? 3 : IsConst ? 2 : 1,
-                symbol.Name,
-                IsVar ? 1 : 0,
-                Type.Type.TypeRef,
-                Parent);
-
-            trapFile.localvar_location(this, DeclLocation);
+            trapFile.localvar_location(this, Location);
 
             DefineConstantValue(trapFile);
         }
 
-        public static LocalVariable Create(Context cx, ISymbol local, Expression parent, bool isVar, Extraction.Entities.Location declLocation)
+        public static LocalVariable Create(Context cx, ISymbol local)
         {
-            return LocalVariableFactory.Instance.CreateEntity(cx, local, parent, isVar, declLocation);
+            return LocalVariableFactory.Instance.CreateEntityFromSymbol(cx, local);
         }
 
-        /// <summary>
-        /// Gets the local variable entity for <paramref name="local"/> which must
-        /// already have been created.
-        /// </summary>
-        public static LocalVariable GetAlreadyCreated(Context cx, ISymbol local) => LocalVariableFactory.Instance.CreateEntity(cx, local, null, false, null);
-
-        bool IsConst
+        private void DefineConstantValue(TextWriter trapFile)
         {
-            get
+            if (Symbol is ILocalSymbol local && local.HasConstantValue)
             {
-                var local = symbol as ILocalSymbol;
-                return local != null && local.IsConst;
+                trapFile.constant_value(this, Expression.ValueAsString(local.ConstantValue!));
             }
         }
 
-        bool IsRef
+        private class LocalVariableFactory : CachedEntityFactory<ISymbol, LocalVariable>
         {
-            get
-            {
-                var local = symbol as ILocalSymbol;
-                return local != null && local.IsRef;
-            }
-        }
+            public static LocalVariableFactory Instance { get; } = new LocalVariableFactory();
 
-        AnnotatedType Type
-        {
-            get
-            {
-                var local = symbol as ILocalSymbol;
-                return local == null ? Parent.Type : Entities.Type.Create(Context, local.GetAnnotatedType());
-            }
-        }
-
-        void DefineConstantValue(TextWriter trapFile)
-        {
-            var local = symbol as ILocalSymbol;
-            if (local != null && local.HasConstantValue)
-            {
-                trapFile.constant_value(this, Expression.ValueAsString(local.ConstantValue));
-            }
-        }
-
-        class LocalVariableFactory : ICachedEntityFactory<(ISymbol, Expression, bool, Extraction.Entities.Location), LocalVariable>
-        {
-            public static readonly LocalVariableFactory Instance = new LocalVariableFactory();
-
-            public LocalVariable Create(Context cx, (ISymbol, Expression, bool, Extraction.Entities.Location) init) =>
-                new LocalVariable(cx, init.Item1, init.Item2, init.Item3, init.Item4);
+            public override LocalVariable Create(Context cx, ISymbol init) => new LocalVariable(cx, init);
         }
 
         public override TrapStackBehaviour TrapStackBehaviour => TrapStackBehaviour.NeedsLabel;

@@ -6,6 +6,7 @@
  * @kind problem
  * @id cpp/late-negative-test
  * @problem.severity warning
+ * @security-severity 9.3
  * @tags reliability
  *       security
  *       external/cwe/cwe-823
@@ -13,7 +14,7 @@
 
 import cpp
 
-predicate negativeCheck(LocalScopeVariable v, ComparisonOperation op) {
+predicate negativeCheck(StackVariable v, ComparisonOperation op) {
   exists(int varindex, string constant, Literal lit |
     op.getChild(varindex) = v.getAnAccess() and
     op.getChild(1 - varindex) = lit and
@@ -38,7 +39,7 @@ predicate negativeCheck(LocalScopeVariable v, ComparisonOperation op) {
   )
 }
 
-from LocalScopeVariable v, ArrayExpr dangerous, Expr check
+from StackVariable v, ArrayExpr dangerous, Expr check
 where
   useUsePair(v, dangerous.getArrayOffset(), check.getAChild()) and
   negativeCheck(v, check) and
@@ -48,4 +49,4 @@ where
 select dangerous,
   "Variable '" + v.getName() +
     "' is used as an array-offset before it is tested for being negative (test on line " +
-    check.getLocation().getStartLine().toString() + "). "
+    check.getLocation().getStartLine().toString() + ")."

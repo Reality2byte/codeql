@@ -19,9 +19,5 @@ where
   m.getNumberOfParameters() = 1 and
   c.getArgument(0).getType() = p and
   p.getATypeArgument() = t and
-  not exists(Annotation a |
-    t.getAnAnnotation() = a and
-    a.getType().hasQualifiedName("java.lang.annotation", "Retention") and
-    a.getAValue().(VarAccess).getVariable().hasName("RUNTIME")
-  )
+  t.getRetentionPolicy() != "RUNTIME"
 select c, "Call to isAnnotationPresent where no annotation has the RUNTIME retention policy."

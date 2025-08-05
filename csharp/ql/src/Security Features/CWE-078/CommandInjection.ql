@@ -4,6 +4,7 @@
  *              user to change the meaning of the command.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.8
  * @precision high
  * @id cs/command-line-injection
  * @tags correctness
@@ -13,10 +14,10 @@
  */
 
 import csharp
-import semmle.code.csharp.security.dataflow.CommandInjection::CommandInjection
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.CommandInjectionQuery
+import CommandInjection::PathGraph
 
-from TaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "$@ flows to here and is used in a command.", source.getNode(),
-  "User-provided value"
+from CommandInjection::PathNode source, CommandInjection::PathNode sink
+where CommandInjection::flowPath(source, sink)
+select sink.getNode(), source, sink, "This command line depends on a $@.", source.getNode(),
+  "user-provided value"

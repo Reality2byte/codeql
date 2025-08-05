@@ -42,11 +42,14 @@ namespace System.Web
     {
         public void Transfer(string path) { }
         public string UrlEncode(string s) => null;
+        public string HtmlEncode(string s) => null;
     }
 
     public class HttpApplication : IHttpHandler
     {
         public HttpServerUtility Server { get; }
+
+        public Routing.RouteTable RouteTable { get; }
     }
 }
 
@@ -78,6 +81,8 @@ namespace System.Web.UI
 
     public class Page
     {
+        public System.Security.Principal.IPrincipal User { get; } 
+        public System.Web.HttpRequest Request { get; }
     }
 
     interface IPostBackDataHandler
@@ -155,6 +160,8 @@ namespace System.Web
     public class HttpResponse
     {
         public void Write(object o) { }
+        public void Write(string s) { }
+        public void WriteFile(string s) { }
         public HttpCookieCollection Cookies => null;
         public void AddHeader(string name, string value) { }
         public void Redirect(string url) { }
@@ -169,20 +176,22 @@ namespace System.Web
         public HttpServerUtility Server => null;
     }
 
-    public class HttpUtility
-    {
-        public static string HtmlEncode(object value) => null;
-        public static string HtmlEncode(string value) => null;
-        public static string UrlEncode(string value) => null;
-        public static string HtmlAttributeEncode(string value) => null;
-    }
-
     public class HttpCookie
     {
+        public HttpCookie(string name)
+        {
+        }
+
+        public HttpCookie(string name, string value)
+        {
+        }
+
         public string Value { get; set; }
         public NameValueCollection Values => null;
         public string this[string s] { get => null; set { } }
         public bool Secure { get; set; }
+        public bool HttpOnly { get; set; }
+        public System.DateTime Expires { get; set; }
     }
 
     public abstract class HttpCookieCollection : System.Collections.Specialized.NameObjectCollectionBase
@@ -296,6 +305,19 @@ namespace System.Web.Routing
     public class RequestContext
     {
     }
+
+    public class Route 
+    {
+    }
+
+    public class RouteTable {
+        public RouteCollection Routes { get; }
+    }
+
+    public class RouteCollection 
+    {
+        public Route MapPageRoute(string routeName, string routeUrl, string physicalFile, bool checkPhysicalUrlAccess) { return null; }
+    }
 }
 
 namespace System.Web.Security
@@ -344,5 +366,27 @@ namespace System.Web.Helpers
     public static class AntiForgery
     {
         public static void Validate() { }
+    }
+}
+
+namespace System.Web.Script.Serialization
+{
+    // Generated from `System.Web.Script.Serialization.JavaScriptSerializer` in `System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35`
+    public class JavaScriptSerializer
+    {
+        public JavaScriptSerializer() => throw null;
+        public JavaScriptSerializer(System.Web.Script.Serialization.JavaScriptTypeResolver resolver) => throw null;
+        public object DeserializeObject(string input) => throw null;
+    }
+
+    // Generated from `System.Web.Script.Serialization.JavaScriptTypeResolver` in `System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35`
+    abstract public class JavaScriptTypeResolver
+    {
+    }
+
+    // Generated from `System.Web.Script.Serialization.SimpleTypeResolver` in `System.Web.Extensions, Version=4.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35`
+    public class SimpleTypeResolver : System.Web.Script.Serialization.JavaScriptTypeResolver
+    {
+        public SimpleTypeResolver() => throw null;
     }
 }

@@ -4,6 +4,7 @@
  *              attacker.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 7.5
  * @precision high
  * @id cs/cleartext-storage-of-sensitive-information
  * @tags security
@@ -13,10 +14,10 @@
  */
 
 import csharp
-import semmle.code.csharp.security.dataflow.CleartextStorage::CleartextStorage
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.CleartextStorageQuery
+import ClearTextStorage::PathGraph
 
-from TaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "Sensitive data returned by $@ is stored here.",
+from ClearTextStorage::PathNode source, ClearTextStorage::PathNode sink
+where ClearTextStorage::flowPath(source, sink)
+select sink.getNode(), source, sink, "This stores sensitive data returned by $@ as clear text.",
   source.getNode(), source.toString()

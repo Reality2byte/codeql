@@ -4,6 +4,7 @@
  *              allows for a cross-site scripting vulnerability.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 6.1
  * @sub-severity high
  * @precision high
  * @id py/reflective-xss
@@ -13,29 +14,10 @@
  */
 
 import python
-import semmle.python.security.Paths
+import semmle.python.security.dataflow.ReflectedXssQuery
+import ReflectedXssFlow::PathGraph
 
-/* Sources */
-import semmle.python.web.HttpRequest
-
-/* Sinks */
-
-import semmle.python.web.HttpResponse
-
-/* Flow */
-import semmle.python.security.strings.Untrusted
-
-
-class ReflectedXssConfiguration extends TaintTracking::Configuration {
-
-    ReflectedXssConfiguration() { this = "Reflected XSS configuration" }
-
-    override predicate isSource(TaintTracking::Source source) { source instanceof HttpRequestTaintSource }
-
-    override predicate isSink(TaintTracking::Sink sink) { sink instanceof HttpResponseTaintSink }
-
-}
-
-from ReflectedXssConfiguration config, TaintedPathSource src, TaintedPathSink sink
-where config.hasFlowPath(src, sink)
-select sink.getSink(), src, sink, "Cross-site scripting vulnerability due to $@.", src.getSource(), "user-provided value"
+from ReflectedXssFlow::PathNode source, ReflectedXssFlow::PathNode sink
+where ReflectedXssFlow::flowPath(source, sink)
+select sink.getNode(), source, sink, "Cross-site scripting vulnerability due to a $@.",
+  source.getNode(), "user-provided value"

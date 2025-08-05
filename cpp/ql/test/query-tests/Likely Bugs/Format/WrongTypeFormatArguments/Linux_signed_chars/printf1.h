@@ -151,3 +151,129 @@ void fun4()
   printf("%qi\n", ll); // GOOD
   printf("%qu\n", ull); // GOOD
 }
+
+void complexFormatSymbols(int i, const char *s)
+{
+  // positional arguments
+  printf("%1$i", i, s); // GOOD
+  printf("%2$s", i, s); // GOOD
+  printf("%1$s", i, s); // BAD
+  printf("%2$i", i, s); // BAD
+
+  // width / precision
+  printf("%4i", i); // GOOD
+  printf("%.4i", i); // GOOD
+  printf("%4.4i", i); // GOOD
+  printf("%4s", i); // BAD
+  printf("%.4s", i); // BAD
+  printf("%4.4s", i); // BAD
+
+  printf("%4s", s); // GOOD
+  printf("%.4s", s); // GOOD
+  printf("%4.4s", s); // GOOD
+  printf("%4i", s); // BAD
+  printf("%.4i", s); // BAD
+  printf("%4.4i", s); // BAD
+
+  // variable width / precision
+  printf("%*s", i, s); // GOOD
+  printf("%*s", s, s); // BAD
+  printf("%*s", i, i); // BAD
+  printf("%.*s", i, s); // GOOD
+  printf("%.*s", s, s); // BAD
+  printf("%.*s", i, i); // BAD
+  printf("%*.4s", i, s); // GOOD
+  printf("%*.4s", s, s); // BAD
+  printf("%*.4s", i, i); // BAD
+  printf("%4.*s", i, s); // GOOD
+  printf("%4.*s", s, s); // BAD
+  printf("%4.*s", i, i); // BAD
+  printf("%*.*s", i, i, s); // GOOD
+  printf("%*.*s", s, i, s); // BAD
+  printf("%*.*s", i, s, s); // BAD
+  printf("%*.*s", i, i, i); // BAD
+
+  // positional arguments mixed with variable width / precision
+  printf("%2$*1$s", i, s); // GOOD
+  printf("%2$*2$s", i, s); // BAD
+  printf("%1$*1$s", i, s); // BAD
+
+  printf("%2$*1$.4s", i, s); // GOOD
+  printf("%2$*2$.4s", i, s); // BAD
+  printf("%1$*1$.4s", i, s); // BAD
+
+  printf("%2$.*1$s", i, s); // GOOD
+  printf("%2$.*2$s", i, s); // BAD
+  printf("%1$.*1$s", i, s); // BAD
+
+  printf("%2$4.*1$s", i, s); // GOOD
+  printf("%2$4.*2$s", i, s); // BAD
+  printf("%1$4.*1$s", i, s); // BAD
+
+  printf("%2$*1$.*1$s", i, s); // GOOD
+  printf("%2$*2$.*1$s", i, s); // BAD
+  printf("%2$*1$.*2$s", i, s); // BAD
+  printf("%1$*1$.*1$s", i, s); // BAD
+
+  // left justify flag
+  printf("%-4s", s); // GOOD
+  printf("%1$-4s", s); // GOOD
+  printf("%-4i", s); // BAD
+  printf("%1$-4i", s); // BAD
+
+  printf("%1$-4s", s, i); // GOOD
+  printf("%2$-4s", s, i); // BAD
+
+  printf("%1$-.4s", s, i); // GOOD
+  printf("%2$-.4s", s, i); // BAD
+
+  printf("%1$-4.4s", s, i); // GOOD
+  printf("%2$-4.4s", s, i); // BAD
+
+  printf("%1$-*2$s", s, i); // GOOD
+  printf("%2$-*2$s", s, i); // BAD
+  printf("%1$-*1$s", s, i); // BAD
+}
+
+void myvsnprintf(const char *format_string, char *target, size_t buffer_size, va_list args)
+{
+	// wraps vsnprintf with different parameter order
+	vsnprintf(target, buffer_size, format_string, args);
+}
+
+void mysprintf(const char *format_string, char *target, size_t buffer_size, ...)
+{
+	// wraps myvsnprintf as an snprintf-like
+	va_list args;
+
+	va_start(args, text);
+		myvsnprintf(format_string, target, buffer_size, args);
+
+		// ...
+
+	va_end(args);
+}
+
+void myprintf(const char *format_string, ...)
+{
+	// wraps myvsnprintf as an printf-like (i.e. doesn't pass in a buffer from the caller)
+	char buffer[1024];
+	va_list args;
+
+	va_start(args, text);
+		myvsnprintf(format_string, buffer, 1024, args);
+
+		// ...
+
+	va_end(args);
+}
+
+void usemyprintf(int i, char *s)
+{
+	char buffer[1024];
+
+	mysprintf("%i", buffer, 1024, i); // GOOD
+	mysprintf("%i", buffer, 1024, s); // BAD
+	myprintf("%i", i); // GOOD
+	myprintf("%i", s); // BAD
+}

@@ -4,6 +4,7 @@
  *              proper validation, can lead to index out of bound exceptions.
  * @kind path-problem
  * @problem.severity recommendation
+ * @security-severity 8.8
  * @precision medium
  * @id java/improper-validation-of-array-index-code-specified
  * @tags security
@@ -11,27 +12,18 @@
  */
 
 import java
-import ArraySizing
-import BoundingChecks
-import DataFlow::PathGraph
-
-class BoundedFlowSourceConf extends DataFlow::Configuration {
-  BoundedFlowSourceConf() { this = "BoundedFlowSource" }
-
-  override predicate isSource(DataFlow::Node source) { source instanceof BoundedFlowSource }
-
-  override predicate isSink(DataFlow::Node sink) {
-    exists(CheckableArrayAccess arrayAccess | arrayAccess.canThrowOutOfBounds(sink.asExpr()))
-  }
-}
+import semmle.code.java.security.internal.ArraySizing
+import semmle.code.java.security.internal.BoundingChecks
+import semmle.code.java.security.ImproperValidationOfArrayIndexCodeSpecifiedQuery
+import BoundedFlowSourceFlow::PathGraph
 
 from
-  DataFlow::PathNode source, DataFlow::PathNode sink, BoundedFlowSource boundedsource,
-  CheckableArrayAccess arrayAccess
+  BoundedFlowSourceFlow::PathNode source, BoundedFlowSourceFlow::PathNode sink,
+  BoundedFlowSource boundedsource, CheckableArrayAccess arrayAccess
 where
   arrayAccess.canThrowOutOfBounds(sink.getNode().asExpr()) and
   boundedsource = source.getNode() and
-  any(BoundedFlowSourceConf conf).hasFlowPath(source, sink) and
+  BoundedFlowSourceFlow::flowPath(source, sink) and
   boundedsource != sink.getNode() and
   not (
     (

@@ -4,6 +4,7 @@
  *              to behave unexpectedly.
  * @kind problem
  * @problem.severity warning
+ * @security-severity 8.1
  * @precision medium
  * @id java/comparison-with-wider-type
  * @tags reliability
@@ -19,9 +20,7 @@ int leftWidth(ComparisonExpr e) { result = e.getLeftOperand().getType().(NumType
 
 int rightWidth(ComparisonExpr e) { result = e.getRightOperand().getType().(NumType).getWidthRank() }
 
-abstract class WideningComparison extends BinaryExpr {
-  WideningComparison() { this instanceof ComparisonExpr }
-
+abstract class WideningComparison extends BinaryExpr instanceof ComparisonExpr {
   abstract Expr getNarrower();
 
   abstract Expr getWider();
@@ -33,9 +32,9 @@ class LTWideningComparison extends WideningComparison {
     leftWidth(this) < rightWidth(this)
   }
 
-  override Expr getNarrower() { result = getLeftOperand() }
+  override Expr getNarrower() { result = this.getLeftOperand() }
 
-  override Expr getWider() { result = getRightOperand() }
+  override Expr getWider() { result = this.getRightOperand() }
 }
 
 class GTWideningComparison extends WideningComparison {
@@ -44,9 +43,9 @@ class GTWideningComparison extends WideningComparison {
     leftWidth(this) > rightWidth(this)
   }
 
-  override Expr getNarrower() { result = getRightOperand() }
+  override Expr getNarrower() { result = this.getRightOperand() }
 
-  override Expr getWider() { result = getLeftOperand() }
+  override Expr getWider() { result = this.getLeftOperand() }
 }
 
 from WideningComparison c, LoopStmt l

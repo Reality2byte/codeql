@@ -19,12 +19,12 @@ import semmle.code.csharp.commons.ComparisonTest
 /** A comparison of an index variable with the length of an array. */
 class IndexGuard extends ComparisonTest {
   VariableAccess indexAccess;
-
   Variable array;
 
   IndexGuard() {
     this.getFirstArgument() = indexAccess and
-    this.getSecondArgument() = any(PropertyAccess lengthAccess |
+    this.getSecondArgument() =
+      any(PropertyAccess lengthAccess |
         lengthAccess.getQualifier() = array.getAnAccess() and
         lengthAccess.getTarget().hasName("Length")
       )
@@ -64,6 +64,5 @@ where
     validGuard.controls(array, index) and
     validGuard.guards(indexAccess, _)
   )
-select incorrectGuard,
-  "Off-by-one index comparison against length leads to possible out of bounds $@.", ea,
-  ea.toString()
+select incorrectGuard, "Off-by-one index comparison against length may lead to out-of-bounds $@.",
+  ea, ea.toString()

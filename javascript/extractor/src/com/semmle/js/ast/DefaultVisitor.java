@@ -14,6 +14,7 @@ import com.semmle.js.ast.jsx.JSXMemberExpression;
 import com.semmle.js.ast.jsx.JSXNamespacedName;
 import com.semmle.js.ast.jsx.JSXOpeningElement;
 import com.semmle.js.ast.jsx.JSXSpreadAttribute;
+import com.semmle.js.ast.jsx.JSXThisExpr;
 import com.semmle.ts.ast.ArrayTypeExpr;
 import com.semmle.ts.ast.ConditionalTypeExpr;
 import com.semmle.ts.ast.DecoratorList;
@@ -34,21 +35,23 @@ import com.semmle.ts.ast.InferTypeExpr;
 import com.semmle.ts.ast.InterfaceDeclaration;
 import com.semmle.ts.ast.InterfaceTypeExpr;
 import com.semmle.ts.ast.IntersectionTypeExpr;
-import com.semmle.ts.ast.IsTypeExpr;
-import com.semmle.ts.ast.UnaryTypeExpr;
 import com.semmle.ts.ast.KeywordTypeExpr;
 import com.semmle.ts.ast.MappedTypeExpr;
 import com.semmle.ts.ast.NamespaceDeclaration;
 import com.semmle.ts.ast.NonNullAssertion;
 import com.semmle.ts.ast.OptionalTypeExpr;
 import com.semmle.ts.ast.ParenthesizedTypeExpr;
+import com.semmle.ts.ast.PredicateTypeExpr;
 import com.semmle.ts.ast.RestTypeExpr;
+import com.semmle.ts.ast.TemplateLiteralTypeExpr;
 import com.semmle.ts.ast.TupleTypeExpr;
 import com.semmle.ts.ast.TypeAliasDeclaration;
 import com.semmle.ts.ast.TypeAssertion;
+import com.semmle.ts.ast.SatisfiesExpr;
 import com.semmle.ts.ast.TypeExpression;
 import com.semmle.ts.ast.TypeParameter;
 import com.semmle.ts.ast.TypeofTypeExpr;
+import com.semmle.ts.ast.UnaryTypeExpr;
 import com.semmle.ts.ast.UnionTypeExpr;
 import com.semmle.util.exception.CatastrophicError;
 
@@ -92,13 +95,21 @@ public class DefaultVisitor<C, R> implements Visitor<C, R> {
   }
 
   @Override
+  public R visit(AngularPipeRef nd, C c) {
+    return visit((Expression) nd, c);
+  }
+
+  @Override
   public R visit(AssignmentExpression nd, C c) {
     return visit((Expression) nd, c);
   }
 
   @Override
-  public R visit(AssignmentPattern nd, C q) {
-    throw new CatastrophicError("Assignment patterns should not appear in the AST.");
+  public R visit(AssignmentPattern nd, C c) {
+    // assignment patterns should not appear in the AST, but can do for malformed
+    // programs; the ASTExtractor raises a ParseError in this case, other visitors
+    // should just ignore them
+    return visit(nd.getLeft(), c);
   }
 
   @Override
@@ -365,6 +376,11 @@ public class DefaultVisitor<C, R> implements Visitor<C, R> {
   }
 
   @Override
+  public R visit(TemplateLiteralTypeExpr nd, C c) {
+    return visit((TypeExpression) nd, c);
+  }
+
+  @Override
   public R visit(TaggedTemplateExpression nd, C c) {
     return visit((Expression) nd, c);
   }
@@ -492,6 +508,11 @@ public class DefaultVisitor<C, R> implements Visitor<C, R> {
 
   @Override
   public R visit(JSXIdentifier nd, C c) {
+    return visit((IJSXName) nd, c);
+  }
+
+  @Override
+  public R visit(JSXThisExpr nd, C c) {
     return visit((IJSXName) nd, c);
   }
 
@@ -634,7 +655,7 @@ public class DefaultVisitor<C, R> implements Visitor<C, R> {
   }
 
   @Override
-  public R visit(IsTypeExpr nd, C c) {
+  public R visit(PredicateTypeExpr nd, C c) {
     return visit((TypeExpression) nd, c);
   }
 
@@ -660,6 +681,11 @@ public class DefaultVisitor<C, R> implements Visitor<C, R> {
 
   @Override
   public R visit(TypeAssertion nd, C c) {
+    return visit((Expression) nd, c);
+  }
+
+  @Override
+  public R visit(SatisfiesExpr nd, C c) {
     return visit((Expression) nd, c);
   }
 
@@ -756,5 +782,15 @@ public class DefaultVisitor<C, R> implements Visitor<C, R> {
   @Override
   public R visit(XMLDotDotExpression nd, C c) {
     return visit((Expression) nd, c);
+  }
+
+  @Override
+  public R visit(GeneratedCodeExpr nd, C c) {
+    return visit((Expression) nd, c);
+  }
+
+  @Override
+  public R visit(StaticInitializer nd, C c) {
+    return visit((MemberDefinition<BlockStatement>) nd, c);
   }
 }

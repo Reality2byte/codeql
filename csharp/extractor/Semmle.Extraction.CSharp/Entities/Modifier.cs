@@ -1,41 +1,18 @@
-using Microsoft.CodeAnalysis;
-using System;
 using System.IO;
-using System.Reflection;
+using Microsoft.CodeAnalysis;
 
 namespace Semmle.Extraction.CSharp.Entities
 {
-    /// <summary>
-    /// Provide a "Key" object to allow modifiers to exist as entities in the extractor
-    /// hash map. (Raw strings would work as keys but might clash with other types).
-    /// </summary>
-    class ModifierKey : Object
+    internal class Modifier : Extraction.CachedEntity<string>
     {
-        public readonly string name;
-
-        public ModifierKey(string m)
-        {
-            name = m;
-        }
-
-        public override bool Equals(Object obj)
-        {
-            return obj.GetType() == GetType() && name == ((ModifierKey)obj).name;
-        }
-
-        public override int GetHashCode() => 13 * name.GetHashCode();
-    }
-
-    class Modifier : Extraction.CachedEntity<ModifierKey>
-    {
-        Modifier(Context cx, ModifierKey init)
+        private Modifier(Context cx, string init)
             : base(cx, init) { }
 
-        public override Microsoft.CodeAnalysis.Location ReportingLocation => null;
+        public override Location? ReportingLocation => null;
 
-        public override void WriteId(TextWriter trapFile)
+        public override void WriteId(EscapingTextWriter trapFile)
         {
-            trapFile.Write(symbol.name);
+            trapFile.Write(Symbol);
             trapFile.Write(";modifier");
         }
 
@@ -43,24 +20,19 @@ namespace Semmle.Extraction.CSharp.Entities
 
         public override void Populate(TextWriter trapFile)
         {
-            trapFile.modifiers(Label, symbol.name);
+            trapFile.modifiers(Label, Symbol);
         }
 
-        public static string AccessbilityModifier(Accessibility access)
+        public static string AccessibilityModifier(Accessibility access)
         {
-            switch (access)
+            return access switch
             {
-                case Accessibility.Private:
-                    return "private";
-                case Accessibility.Protected:
-                    return "protected";
-                case Accessibility.Public:
-                    return "public";
-                case Accessibility.Internal:
-                    return "internal";
-                default:
-                    throw new InternalError("Unavailable modifier combination");
-            }
+                Accessibility.Private => Modifiers.Private,
+                Accessibility.Protected => Modifiers.Protected,
+                Accessibility.Public => Modifiers.Public,
+                Accessibility.Internal => Modifiers.Internal,
+                _ => throw new InternalError("Unavailable modifier combination"),
+            };
         }
 
         public static void HasAccessibility(Context cx, TextWriter trapFile, IEntity type, Accessibility access)
@@ -71,17 +43,17 @@ namespace Semmle.Extraction.CSharp.Entities
                 case Accessibility.Public:
                 case Accessibility.Protected:
                 case Accessibility.Internal:
-                    HasModifier(cx, trapFile, type, Modifier.AccessbilityModifier(access));
+                    HasModifier(cx, trapFile, type, AccessibilityModifier(access));
                     break;
                 case Accessibility.NotApplicable:
                     break;
                 case Accessibility.ProtectedOrInternal:
-                    HasModifier(cx, trapFile, type, "protected");
-                    HasModifier(cx, trapFile, type, "internal");
+                    HasModifier(cx, trapFile, type, Modifiers.Protected);
+                    HasModifier(cx, trapFile, type, Modifiers.Internal);
                     break;
                 case Accessibility.ProtectedAndInternal:
-                    HasModifier(cx, trapFile, type, "protected");
-                    HasModifier(cx, trapFile, type, "private");
+                    HasModifier(cx, trapFile, type, Modifiers.Protected);
+                    HasModifier(cx, trapFile, type, Modifiers.Private);
                     break;
                 default:
                     throw new InternalError($"Unhandled Microsoft.CodeAnalysis.Accessibility value: {access}");
@@ -93,76 +65,100 @@ namespace Semmle.Extraction.CSharp.Entities
             trapFile.has_modifiers(target, Modifier.Create(cx, modifier));
         }
 
+        private static void ExtractFieldModifiers(Context cx, TextWriter trapFile, IEntity key, IFieldSymbol symbol)
+        {
+            if (symbol.IsReadOnly)
+                HasModifier(cx, trapFile, key, Modifiers.Readonly);
+
+            if (symbol.IsRequired)
+                HasModifier(cx, trapFile, key, Modifiers.Required);
+        }
+
+        private static void ExtractNamedTypeModifiers(Context cx, TextWriter trapFile, IEntity key, ISymbol symbol)
+        {
+            if (symbol.Kind != SymbolKind.NamedType)
+                return;
+
+            if (symbol is not INamedTypeSymbol nt)
+                throw new InternalError(symbol, "Symbol kind is inconsistent with its type");
+
+            if (nt.IsRecord)
+                HasModifier(cx, trapFile, key, Modifiers.Record);
+
+            if (nt.IsFileLocal)
+                HasModifier(cx, trapFile, key, Modifiers.File);
+
+            if (nt.TypeKind == TypeKind.Struct)
+            {
+                if (nt.IsReadOnly)
+                    HasModifier(cx, trapFile, key, Modifiers.Readonly);
+
+                if (nt.IsRefLikeType)
+                    HasModifier(cx, trapFile, key, Modifiers.Ref);
+            }
+        }
+
         public static void ExtractModifiers(Context cx, TextWriter trapFile, IEntity key, ISymbol symbol)
         {
-            bool interfaceDefinition = symbol.ContainingType != null
-                && symbol.ContainingType.Kind == SymbolKind.NamedType
-                && symbol.ContainingType.TypeKind == TypeKind.Interface;
+            // A file scoped type has declared accessibility `internal` which we shouldn't extract.
+            // The file modifier is extracted as a source level modifier.
+            if (symbol.Kind != SymbolKind.NamedType || !((INamedTypeSymbol)symbol).IsFileLocal)
+                HasAccessibility(cx, trapFile, key, symbol.DeclaredAccessibility);
 
-            HasAccessibility(cx, trapFile, key, symbol.DeclaredAccessibility);
             if (symbol.Kind == SymbolKind.ErrorType)
                 trapFile.has_modifiers(key, Modifier.Create(cx, Accessibility.Public));
 
-            if (symbol.IsAbstract && (symbol.Kind != SymbolKind.NamedType || ((INamedTypeSymbol)symbol).TypeKind != TypeKind.Interface) && !interfaceDefinition)
-                HasModifier(cx, trapFile, key, "abstract");
+            if (symbol.IsAbstract && (symbol.Kind != SymbolKind.NamedType || ((INamedTypeSymbol)symbol).TypeKind != TypeKind.Interface))
+                HasModifier(cx, trapFile, key, Modifiers.Abstract);
 
             if (symbol.IsSealed)
-                HasModifier(cx, trapFile, key, "sealed");
+                HasModifier(cx, trapFile, key, Modifiers.Sealed);
 
-            bool fromSource = symbol.DeclaringSyntaxReferences.Length > 0;
+            var fromSource = symbol.DeclaringSyntaxReferences.Length > 0;
 
             if (symbol.IsStatic && !(symbol.Kind == SymbolKind.Field && ((IFieldSymbol)symbol).IsConst && !fromSource))
-                HasModifier(cx, trapFile, key, "static");
+                HasModifier(cx, trapFile, key, Modifiers.Static);
 
             if (symbol.IsVirtual)
-                HasModifier(cx, trapFile, key, "virtual");
+                HasModifier(cx, trapFile, key, Modifiers.Virtual);
 
-            // For some reason, method in interfaces are "virtual", not "abstract"
-            if (symbol.IsAbstract && interfaceDefinition)
-                HasModifier(cx, trapFile, key, "virtual");
+            if (symbol is IFieldSymbol field)
+                ExtractFieldModifiers(cx, trapFile, key, field);
 
-            if (symbol.Kind == SymbolKind.Field && ((IFieldSymbol)symbol).IsReadOnly)
-                HasModifier(cx, trapFile, key, "readonly");
+            if (symbol.Kind == SymbolKind.Property && ((IPropertySymbol)symbol).IsRequired)
+                HasModifier(cx, trapFile, key, Modifiers.Required);
 
             if (symbol.IsOverride)
-                HasModifier(cx, trapFile, key, "override");
+                HasModifier(cx, trapFile, key, Modifiers.Override);
 
             if (symbol.Kind == SymbolKind.Method && ((IMethodSymbol)symbol).IsAsync)
-                HasModifier(cx, trapFile, key, "async");
+                HasModifier(cx, trapFile, key, Modifiers.Async);
 
             if (symbol.IsExtern)
-                HasModifier(cx, trapFile, key, "extern");
+                HasModifier(cx, trapFile, key, Modifiers.Extern);
 
             foreach (var modifier in symbol.GetSourceLevelModifiers())
                 HasModifier(cx, trapFile, key, modifier);
 
-            if (symbol.Kind == SymbolKind.NamedType)
-            {
-                INamedTypeSymbol nt = symbol as INamedTypeSymbol;
-                if (nt is null)
-                    throw new InternalError(symbol, "Symbol kind is inconsistent with its type");
-
-                if (nt.TypeKind == TypeKind.Struct)
-                {
-                    if (nt.IsReadOnly)
-                        HasModifier(cx, trapFile, key, "readonly");
-                    if (nt.IsRefLikeType)
-                        HasModifier(cx, trapFile, key, "ref");
-                }
-            }
+            ExtractNamedTypeModifiers(cx, trapFile, key, symbol);
         }
 
-        public static Modifier Create(Context cx, string modifier) =>
-            ModifierFactory.Instance.CreateEntity(cx, new ModifierKey(modifier));
-
-        public static Modifier Create(Context cx, Accessibility access) =>
-            ModifierFactory.Instance.CreateEntity(cx, new ModifierKey(AccessbilityModifier(access)));
-
-        class ModifierFactory : ICachedEntityFactory<ModifierKey, Modifier>
+        public static Modifier Create(Context cx, string modifier)
         {
-            public static readonly ModifierFactory Instance = new ModifierFactory();
+            return ModifierFactory.Instance.CreateEntity(cx, (typeof(Modifier), modifier), modifier);
+        }
 
-            public Modifier Create(Context cx, ModifierKey init) => new Modifier(cx, init);
+        public static Modifier Create(Context cx, Accessibility access)
+        {
+            var modifier = AccessibilityModifier(access);
+            return ModifierFactory.Instance.CreateEntity(cx, (typeof(Modifier), modifier), modifier);
+        }
+
+        private class ModifierFactory : CachedEntityFactory<string, Modifier>
+        {
+            public static ModifierFactory Instance { get; } = new ModifierFactory();
+
+            public override Modifier Create(Context cx, string init) => new Modifier(cx, init);
         }
         public override TrapStackBehaviour TrapStackBehaviour => TrapStackBehaviour.OptionalLabel;
     }

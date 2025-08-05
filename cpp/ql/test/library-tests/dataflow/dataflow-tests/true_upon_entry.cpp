@@ -5,68 +5,68 @@ int source();
 void sink(...);
 bool random();
 
-int test1() {
+void test1() {
   int x = source();
   for (int i = 0; i < 10; i++) {
     x = 0;
   }
-  sink(x); // GOOD (x always overwritten)
+  sink(x); // $ SPURIOUS: ir
 }
 
-int test2(int iterations) {
+void test2(int iterations) {
   int x = source();
   for (int i = 0; i < iterations; i++) {
     x = 0;
   }
-  sink(x); // BAD
+  sink(x); // $ ast,ir
 }
 
-int test3() {
+void test3() {
   int x = 0;
   for (int i = 0; i < 10; i++) {
     x = source();
   }
-  sink(x); // BAD
+  sink(x); // $ ast,ir
 }
 
-int test4() {
+void test4() {
   int x = source();
   for (int i = 0; i < 10; i++) {
     if (random())
       break;
     x = 0;
   }
-  sink(x); // BAD
+  sink(x); // $ ast,ir
 }
 
-int test5() {
+void test5() {
   int x = source();
   for (int i = 0; i < 10; i++) {
     if (random())
       continue;
     x = 0;
   }
-  sink(x); // BAD
+  sink(x); // $ ast,ir
 }
 
-int test6() {
+void test6() {
   int y;
   int x = source();
   for (int i = 0; i < 10 && (y = 1); i++) {
   }
-  sink(x); // BAD
+  sink(x); // $ ast,ir
 }
 
-int test7() {
+void test7() {
   int y;
   int x = source();
   for (int i = 0; i < 10 && (y = 1); i++) {
     x = 0;
   }
-  sink(x); // GOOD
+  sink(x); // $ SPURIOUS: ir
 }
 
-int test8() {
+void test8() {
   int x = source();
   // It appears to the analysis that the condition can exit after `i < 10`
   // without having assigned to `x`. That is an effect of how the
@@ -75,32 +75,32 @@ int test8() {
   // jump out of the condition, not just the last one.
   for (int i = 0; i < 10 && (x = 1); i++) {
   }
-  sink(x); // GOOD [false positive]
+  sink(x); // $ SPURIOUS: ast,ir
 }
 
-int test9() {
+void test9() {
   int y;
   int x = source();
   for (int i = 0; (y = 1) && i < 10; i++) {
   }
-  sink(x); // BAD
+  sink(x); // $ ast,ir
 }
 
-int test10() {
+void test10() {
   int x = source();
   for (int i = 0; (x = 1) && i < 10; i++) {
   }
-  sink(x); // GOOD
+  sink(x); // no flow
 }
 
-int test10(int b, int d) {
+void test10(int b, int d) {
   int i = 0;
   int x = source();
   if (b)
     goto L;
   for (; i < 10; i += d) {
     x = 0;
-    L:
+    L: ;
   }
-  sink(x); // BAD
+  sink(x); // $ ir MISSING: ast
 }

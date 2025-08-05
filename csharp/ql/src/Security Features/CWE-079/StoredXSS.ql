@@ -4,6 +4,7 @@
  *              scripting vulnerability if the data was originally user-provided.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 6.1
  * @precision medium
  * @id cs/web/stored-xss
  * @tags security
@@ -13,21 +14,26 @@
 
 import csharp
 import semmle.code.csharp.security.dataflow.flowsources.Stored
-import semmle.code.csharp.security.dataflow.XSS::XSS
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.XSSQuery
+import semmle.code.csharp.security.dataflow.XSSSinks
+import StoredXss::PathGraph
 
-class StoredTaintTrackingConfiguration extends TaintTrackingConfiguration {
-  override predicate isSource(DataFlow::Node source) { source instanceof StoredFlowSource }
+module StoredXssTrackingConfig implements DataFlow::ConfigSig {
+  predicate isSource(DataFlow::Node source) { source instanceof StoredFlowSource }
+
+  predicate isSink = XssTrackingConfig::isSink/1;
+
+  predicate isBarrier = XssTrackingConfig::isBarrier/1;
 }
 
-from
-  StoredTaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink,
-  string explanation
+module StoredXss = TaintTracking::Global<StoredXssTrackingConfig>;
+
+from StoredXss::PathNode source, StoredXss::PathNode sink, string explanation
 where
-  c.hasFlowPath(source, sink) and
+  StoredXss::flowPath(source, sink) and
   if exists(sink.getNode().(Sink).explanation())
-  then explanation = ": " + sink.getNode().(Sink).explanation() + "."
-  else explanation = "."
+  then explanation = " (" + sink.getNode().(Sink).explanation() + ")"
+  else explanation = ""
 select sink.getNode(), source, sink,
-  "$@ flows to here and is written to HTML or JavaScript" + explanation, source.getNode(),
-  "Stored user-provided value"
+  "This HTML or JavaScript write" + explanation + " depends on a $@.", source.getNode(),
+  "stored (potentially user-provided) value"

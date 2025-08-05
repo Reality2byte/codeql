@@ -20,9 +20,9 @@ predicate definedInModule(GlobalVariable v, NodeModule m) {
   )
 }
 
-from NodeModule m, GlobalVariable f, InvokeExpr invk, ASTNode export, GlobalVarAccess acc
+from NodeModule m, GlobalVariable f, InvokeExpr invk, DataFlow::Node export, GlobalVarAccess acc
 where
-  m.exports(f.getName(), export) and
+  export = m.getAnExportedValue(f.getName()) and
   acc = f.getAnAccess() and
   invk.getCallee() = acc and
   invk.getTopLevel() = m and
@@ -34,6 +34,5 @@ where
   not exists(ExternalGlobalDecl egd | egd.getName() = f.getName()) and
   // don't flag if the invocation could refer to a property introduced by `with`
   not exists(WithStmt with | with.mayAffect(invk.getCallee()))
-select invk,
-  "'" + f.getName() + "' references an undeclared global variable, " +
-    "not the variable exported $@.", export, "here"
+select invk, "'" + f.getName() + "' references an undeclared global variable, " + "not $@.", export,
+  "the variable of the same name that is exported"

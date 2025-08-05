@@ -4,6 +4,7 @@
  *              entity expansion is vulnerable to XXE attacks.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.1
  * @precision high
  * @id js/xxe
  * @tags security
@@ -12,11 +13,11 @@
  */
 
 import javascript
-import semmle.javascript.security.dataflow.Xxe::Xxe
+import semmle.javascript.security.dataflow.XxeQuery
 import DataFlow::PathGraph
 
 from Configuration cfg, DataFlow::PathNode source, DataFlow::PathNode sink
 where cfg.hasFlowPath(source, sink)
 select sink.getNode(), source, sink,
-  "A $@ is parsed as XML without guarding against external entity expansion.", source.getNode(),
-  "user-provided value"
+  "XML parsing depends on a $@ without guarding against external entity expansion.",
+  source.getNode(), "user-provided value"

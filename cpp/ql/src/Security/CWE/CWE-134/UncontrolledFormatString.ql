@@ -3,9 +3,10 @@
  * @description Using externally-controlled format strings in
  *              printf-style functions can lead to buffer overflows
  *              or data representation problems.
- * @kind problem
+ * @kind path-problem
  * @problem.severity warning
- * @precision medium
+ * @security-severity 9.3
+ * @precision high
  * @id cpp/tainted-format-string
  * @tags reliability
  *       security
@@ -15,14 +16,22 @@
 import cpp
 import semmle.code.cpp.security.Security
 import semmle.code.cpp.security.FunctionWithWrappers
-import semmle.code.cpp.security.TaintTracking
+import semmle.code.cpp.ir.dataflow.internal.DefaultTaintTrackingImpl
+import TaintedWithPath
 
-from PrintfLikeFunction printf, Expr arg, string printfFunction,
-     Expr userValue, string cause
+class Configuration extends TaintTrackingConfiguration {
+  override predicate isSink(Element tainted) {
+    exists(PrintfLikeFunction printf | printf.outermostWrapperFunctionCall(tainted, _))
+  }
+}
+
+from
+  PrintfLikeFunction printf, Expr arg, PathNode sourceNode, PathNode sinkNode,
+  string printfFunction, Expr userValue, string cause
 where
-  printf.outermostWrapperFunctionCall(arg, printfFunction)
-  and tainted(userValue, arg)
-  and isUserInput(userValue, cause)
-select arg,
-  "The value of this argument may come from $@ and is being used as a formatting argument to " + printfFunction,
-  userValue, cause
+  printf.outermostWrapperFunctionCall(arg, printfFunction) and
+  taintedWithPath(userValue, arg, sourceNode, sinkNode) and
+  isUserInput(userValue, cause)
+select arg, sourceNode, sinkNode,
+  "The value of this argument may come from $@ and is being used as a formatting argument to " +
+    printfFunction + ".", userValue, cause

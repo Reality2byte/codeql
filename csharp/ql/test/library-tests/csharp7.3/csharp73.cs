@@ -1,5 +1,3 @@
-// semmle-extractor-options: /langversion:latest
-
 using System;
 
 class StackAllocs
@@ -11,6 +9,7 @@ class StackAllocs
         var arr3 = new char[] { 'x' };
         var arr4 = stackalloc char[10];
         var arr5 = new char[10];
+        var arr6 = stackalloc[] { 1, 2, 3 };
     }
 }
 
@@ -18,6 +17,8 @@ class PinnedReference
 {
     unsafe void F()
     {
+        Span<byte> buffer = stackalloc byte[10];
+
         Span<int> t = new int[10];
         // This line should compile and generate a call to t.GetPinnableReference()
         // fixed (int * p = t)

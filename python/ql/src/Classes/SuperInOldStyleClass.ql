@@ -13,10 +13,15 @@
 import python
 
 predicate uses_of_super_in_old_style_class(Call s) {
-		exists(Function f, ClassObject c | s.getScope() = f and f.getScope() = c.getPyClass() and not c.failedInference() and
-		                                   not c.isNewStyle() and ((Name)s.getFunc()).getId() = "super")
+  exists(Function f, ClassObject c |
+    s.getScope() = f and
+    f.getScope() = c.getPyClass() and
+    not c.failedInference() and
+    not c.isNewStyle() and
+    s.getFunc().(Name).getId() = "super"
+  )
 }
 
 from Call c
 where uses_of_super_in_old_style_class(c)
-select c, "super() will not work in old-style classes"
+select c, "'super()' will not work in old-style classes."

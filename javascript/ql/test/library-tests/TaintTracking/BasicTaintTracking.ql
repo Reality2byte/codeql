@@ -1,7 +1,11 @@
 import javascript
 import semmle.javascript.dataflow.InferredTypes
 
-DataFlow::CallNode getACall(string name) { result.getCalleeName() = name }
+DataFlow::CallNode getACall(string name) {
+  result.getCalleeName() = name
+  or
+  result.getCalleeNode().getALocalSource() = DataFlow::globalVarRef(name)
+}
 
 class Sink extends DataFlow::Node {
   Sink() { this = getACall("sink").getAnArgument() }
@@ -13,8 +17,8 @@ class Sink extends DataFlow::Node {
  */
 class UntaintableNode extends DataFlow::Node {
   UntaintableNode() {
-    not analyze().getAType() = TTObject() and
-    not analyze().getAType() = TTString()
+    not this.analyze().getAType() = TTObject() and
+    not this.analyze().getAType() = TTString()
   }
 }
 
@@ -29,6 +33,10 @@ class BasicConfig extends TaintTracking::Configuration {
     node instanceof UntaintableNode
   }
 
+  override predicate isSanitizer(DataFlow::Node node) {
+    node.(DataFlow::InvokeNode).getCalleeName().matches("sanitizer_%")
+  }
+
   override predicate isSanitizerGuard(TaintTracking::SanitizerGuardNode node) {
     node instanceof BasicSanitizerGuard
   }
@@ -38,7 +46,7 @@ class BasicSanitizerGuard extends TaintTracking::SanitizerGuardNode, DataFlow::C
   BasicSanitizerGuard() { this = getACall("isSafe") }
 
   override predicate sanitizes(boolean outcome, Expr e) {
-    outcome = true and e = getArgument(0).asExpr()
+    outcome = true and e = this.getArgument(0).asExpr()
   }
 }
 

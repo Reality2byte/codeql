@@ -16,7 +16,7 @@ import IterableClass
 
 /** An `Iterable` that is also its own `Iterator`. */
 class IterableIterator extends Iterable {
-  IterableIterator() { simpleIterator() instanceof ThisAccess }
+  IterableIterator() { this.simpleIterator() instanceof ThisAccess }
 }
 
 /** An `IterableIterator` that never returns any elements. */
@@ -25,8 +25,7 @@ class EmptyIterableIterator extends IterableIterator {
     exists(Method m |
       m.getDeclaringType().getSourceDeclaration() = this and
       m.getName() = "hasNext" and
-      m
-          .getBody()
+      m.getBody()
           .(SingletonBlock)
           .getStmt()
           .(ReturnStmt)

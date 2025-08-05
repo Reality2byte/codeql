@@ -4,6 +4,7 @@
  *              attackers to retrieve portions of memory.
  * @kind problem
  * @problem.severity error
+ * @security-severity 7.5
  * @precision very-high
  * @id cpp/openssl-heartbleed
  * @tags security
@@ -17,8 +18,9 @@ import cpp
  * Holds if `v` and `w` are ever compared to each other.
  */
 predicate comparedTo(Variable v, Variable w) {
-  v.getAnAssignedValue() = w.getAnAccess() or
-  exists (ComparisonOperation comp |
+  v.getAnAssignedValue() = w.getAnAccess()
+  or
+  exists(ComparisonOperation comp |
     comp = v.getAnAccess().getParent+() and
     comp = w.getAnAccess().getParent+()
   )
@@ -27,9 +29,10 @@ predicate comparedTo(Variable v, Variable w) {
 class DataVariable extends Variable {
   DataVariable() {
     exists(Struct ssl3_record_st |
-           ssl3_record_st.hasName("ssl3_record_st") and
-           this = ssl3_record_st.getAField() and
-           this.hasName("data"))
+      ssl3_record_st.hasName("ssl3_record_st") and
+      this = ssl3_record_st.getAField() and
+      this.hasName("data")
+    )
   }
 }
 
@@ -49,10 +52,13 @@ predicate varPointsInto(Variable tainted, DataVariable src) {
 }
 
 from FunctionCall fc, Struct ssl3_record_st, Field data, Field length
-where fc.getTarget().getName().matches("%memcpy%") and
-      ssl3_record_st.hasName("ssl3_record_st") and
-      data = ssl3_record_st.getAField() and data.hasName("data") and
-      length = ssl3_record_st.getAField() and length.hasName("length") and
-      pointsInto(fc.getArgument(1), data) and
-      not comparedTo(fc.getArgument(2).(VariableAccess).getTarget(), length)
+where
+  fc.getTarget().getName().matches("%memcpy%") and
+  ssl3_record_st.hasName("ssl3_record_st") and
+  data = ssl3_record_st.getAField() and
+  data.hasName("data") and
+  length = ssl3_record_st.getAField() and
+  length.hasName("length") and
+  pointsInto(fc.getArgument(1), data) and
+  not comparedTo(fc.getArgument(2).(VariableAccess).getTarget(), length)
 select fc, "This call to memcpy is insecure (Heartbleed vulnerability)."

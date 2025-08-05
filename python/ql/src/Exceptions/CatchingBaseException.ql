@@ -13,18 +13,18 @@
  */
 
 import python
+import semmle.python.ApiGraphs
 
-predicate doesnt_reraise(ExceptStmt ex) {
-    ex.getAFlowNode().getBasicBlock().reachesExit()
-}
+predicate doesnt_reraise(ExceptStmt ex) { ex.getAFlowNode().getBasicBlock().reachesExit() }
 
 predicate catches_base_exception(ExceptStmt ex) {
-     ex.getType().refersTo(theBaseExceptionType())
-     or
-     not exists(ex.getType())
+  ex.getType() = API::builtin("BaseException").getAValueReachableFromSource().asExpr()
+  or
+  not exists(ex.getType())
 }
 
 from ExceptStmt ex
-where catches_base_exception(ex) and
-doesnt_reraise(ex)
+where
+  catches_base_exception(ex) and
+  doesnt_reraise(ex)
 select ex, "Except block directly handles BaseException."

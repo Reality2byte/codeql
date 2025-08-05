@@ -5,6 +5,7 @@
  *              be avoided.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.1
  * @precision medium
  * @id js/hardcoded-data-interpreted-as-code
  * @tags security
@@ -12,11 +13,11 @@
  */
 
 import javascript
-import semmle.javascript.security.dataflow.HardcodedDataInterpretedAsCode::HardcodedDataInterpretedAsCode
+import semmle.javascript.security.dataflow.HardcodedDataInterpretedAsCodeQuery
 import DataFlow::PathGraph
 
 from Configuration cfg, DataFlow::PathNode source, DataFlow::PathNode sink
 where cfg.hasFlowPath(source, sink)
 select sink.getNode(), source, sink,
-  "Hard-coded data from $@ is interpreted as " + sink.getNode().(Sink).getKind() + ".",
-  source.getNode(), "here"
+  "$@ is interpreted as " + sink.getNode().(Sink).getKind() + ".", source.getNode(),
+  "Hard-coded data"

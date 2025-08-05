@@ -3,6 +3,7 @@
  * @description Running a Flask app in debug mode may allow an attacker to run arbitrary code through the Werkzeug debugger.
  * @kind problem
  * @problem.severity error
+ * @security-severity 7.5
  * @precision high
  * @id py/flask-debug
  * @tags security
@@ -11,13 +12,14 @@
  */
 
 import python
+import semmle.python.dataflow.new.DataFlow
+import semmle.python.ApiGraphs
+import semmle.python.frameworks.Flask
 
-import semmle.python.web.flask.General
-
-
-from CallNode call, Object isTrue
+from API::CallNode call
 where
-    call = theFlaskClass().declaredAttribute("run").(FunctionObject).getACall() and
-    call.getArgByName("debug").refersTo(isTrue) and
-    isTrue.booleanValue() = true
-select call, "A Flask app appears to be run in debug mode. This may allow an attacker to run arbitrary code through the debugger."
+  call = Flask::FlaskApp::instance().getMember("run").getACall() and
+  call.getParameter(2, "debug").getAValueReachingSink().asExpr().(ImmutableLiteral).booleanValue() =
+    true
+select call,
+  "A Flask app appears to be run in debug mode. This may allow an attacker to run arbitrary code through the debugger."

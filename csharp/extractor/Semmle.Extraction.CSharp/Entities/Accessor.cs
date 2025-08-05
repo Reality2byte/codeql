@@ -1,89 +1,88 @@
-using Microsoft.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Microsoft.CodeAnalysis;
 
 namespace Semmle.Extraction.CSharp.Entities
 {
-    class Accessor : Method
+    internal class Accessor : Method
     {
-        protected Accessor(Context cx, IMethodSymbol init)
-            : base(cx, init) { }
-
-        /// <summary>
-        /// Gets the property symbol associated with this accessor.
-        /// </summary>
-        IPropertySymbol PropertySymbol
+        private readonly IPropertySymbol property;
+        protected Accessor(Context cx, IMethodSymbol init, IPropertySymbol property)
+            : base(cx, init)
         {
-            get
-            {
-                // Usually, the property/indexer can be fetched from the associated symbol
-                var prop = symbol.AssociatedSymbol as IPropertySymbol;
-                if (prop != null)
-                    return prop;
-
-                // But for properties/indexers that implement explicit interfaces, Roslyn
-                // does not properly populate `AssociatedSymbol`
-                var props = symbol.ContainingType.GetMembers().OfType<IPropertySymbol>();
-                props = props.Where(p => symbol.Equals(p.GetMethod) || symbol.Equals(p.SetMethod));
-                return props.SingleOrDefault();
-            }
+            this.property = property;
         }
 
-        public new Accessor OriginalDefinition => Create(Context, symbol.OriginalDefinition);
+        /// <summary>
+        /// Gets the property symbol associated with accessor `symbol`, or `null`
+        /// if there is no associated symbol.
+        /// </summary>
+        public static IPropertySymbol? GetPropertySymbol(IMethodSymbol symbol)
+        {
+            // Usually, the property/indexer can be fetched from the associated symbol
+            if (symbol.AssociatedSymbol is IPropertySymbol prop)
+                return prop;
+
+            // But for properties/indexers that implement explicit interfaces, Roslyn
+            // does not properly populate `AssociatedSymbol`
+            var props = symbol.ContainingType.GetMembers().OfType<IPropertySymbol>();
+            props = props.Where(p => SymbolEqualityComparer.Default.Equals(symbol, p.GetMethod) || SymbolEqualityComparer.Default.Equals(symbol, p.SetMethod));
+            return props.SingleOrDefault();
+        }
 
         public override void Populate(TextWriter trapFile)
         {
             PopulateMethod(trapFile);
             PopulateModifiers(trapFile);
-            ContainingType.PopulateGenerics();
+            ContainingType!.PopulateGenerics();
 
-            var prop = PropertySymbol;
-            if (prop == null)
-            {
-                Context.ModelError(symbol, "Unhandled accessor associated symbol");
-                return;
-            }
-
-            var parent = Property.Create(Context, prop);
+            var parent = Property.Create(Context, property);
             int kind;
             Accessor unboundAccessor;
-            if (symbol.Equals(prop.GetMethod))
+            if (SymbolEqualityComparer.Default.Equals(Symbol, property.GetMethod))
             {
                 kind = 1;
-                unboundAccessor = Create(Context, prop.OriginalDefinition.GetMethod);
+                var orig = property.OriginalDefinition;
+                unboundAccessor = Create(Context, orig.GetMethod!, orig);
             }
-            else if (symbol.Equals(prop.SetMethod))
+            else if (SymbolEqualityComparer.Default.Equals(Symbol, property.SetMethod))
             {
                 kind = 2;
-                unboundAccessor = Create(Context, prop.OriginalDefinition.SetMethod);
+                var orig = property.OriginalDefinition;
+                unboundAccessor = Create(Context, orig.SetMethod!, orig);
             }
             else
             {
-                Context.ModelError(symbol, "Unhandled accessor kind");
+                Context.ModelError(Symbol, $"Unhandled accessor method {Symbol.ToDisplayString()}");
                 return;
             }
 
-            trapFile.accessors(this, kind, symbol.Name, parent, unboundAccessor);
+            trapFile.accessors(this, kind, Symbol.Name, parent, unboundAccessor);
 
             foreach (var l in Locations)
                 trapFile.accessor_location(this, l);
 
             Overrides(trapFile);
 
-            if (symbol.FromSource() && Block == null)
+            if (Symbol.FromSource() && Block is null)
             {
                 trapFile.compiler_generated(this);
             }
+
+            if (Symbol.IsInitOnly)
+            {
+                trapFile.init_only_accessors(this);
+            }
         }
 
-        public new static Accessor Create(Context cx, IMethodSymbol symbol) =>
-            AccessorFactory.Instance.CreateEntity(cx, symbol);
+        public static Accessor Create(Context cx, IMethodSymbol symbol, IPropertySymbol prop) =>
+            AccessorFactory.Instance.CreateEntity(cx, symbol, (symbol, prop));
 
-        class AccessorFactory : ICachedEntityFactory<IMethodSymbol, Accessor>
+        private class AccessorFactory : CachedEntityFactory<(IMethodSymbol, IPropertySymbol), Accessor>
         {
-            public static readonly AccessorFactory Instance = new AccessorFactory();
+            public static AccessorFactory Instance { get; } = new AccessorFactory();
 
-            public Accessor Create(Context cx, IMethodSymbol init) => new Accessor(cx, init);
+            public override Accessor Create(Context cx, (IMethodSymbol, IPropertySymbol) init) => new(cx, init.Item1, init.Item2);
         }
     }
 }

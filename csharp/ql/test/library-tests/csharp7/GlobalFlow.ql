@@ -1,17 +1,20 @@
+/**
+ * @kind path-problem
+ */
+
 import csharp
+import GlobalFlow::PathGraph
 
-class DataflowConfiguration extends DataFlow::Configuration {
-  DataflowConfiguration() { this = "data flow configuration" }
+module GlobalFlowConfig implements DataFlow::ConfigSig {
+  predicate isSource(DataFlow::Node source) { source.asExpr().(Expr).getValue() = "tainted" }
 
-  override predicate isSource(DataFlow::Node source) {
-    source.asExpr().(Expr).getValue() = "tainted"
-  }
-
-  override predicate isSink(DataFlow::Node sink) {
+  predicate isSink(DataFlow::Node sink) {
     exists(LocalVariable v | sink.asExpr() = v.getInitializer())
   }
 }
 
-from DataflowConfiguration config, DataFlow::Node source, DataFlow::Node sink
-where config.hasFlow(source, sink)
-select source, sink
+module GlobalFlow = DataFlow::Global<GlobalFlowConfig>;
+
+from GlobalFlow::PathNode source, GlobalFlow::PathNode sink
+where GlobalFlow::flowPath(source, sink)
+select source, source, sink, "$@", sink, sink.toString()

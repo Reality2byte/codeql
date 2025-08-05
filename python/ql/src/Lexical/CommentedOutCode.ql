@@ -12,9 +12,8 @@
  */
 
 import python
-
 import Lexical.CommentedOutCode
 
 from CommentedOutCodeBlock c
 where not c.maybeExampleCode()
-select c, "These comments appear to contain commented-out code."
+select c, "This comment appears to contain commented-out code."

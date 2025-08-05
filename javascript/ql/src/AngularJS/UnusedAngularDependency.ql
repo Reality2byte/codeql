@@ -3,7 +3,7 @@
  * @description Unused dependencies are confusing, and should be removed.
  * @kind problem
  * @problem.severity recommendation
- * @precision high
+ * @precision low
  * @id js/angular/unused-dependency
  * @tags maintainability
  *       frameworks/angularjs
@@ -13,15 +13,15 @@ import javascript
 import Declarations.UnusedParameter
 import semmle.javascript.RestrictedLocations
 
-predicate isUnusedParameter(Function f, string msg, Parameter parameter) {
+predicate isUnusedParameter(DataFlow::FunctionNode f, string msg, Parameter parameter) {
   exists(Variable pv |
-    isUnused(f, parameter, pv, _) and
+    isUnused(f.getFunction(), parameter, pv, _) and
     not isAnAccidentallyUnusedParameter(parameter) and // avoid double alerts
     msg = "Unused dependency " + pv.getName() + "."
   )
 }
 
-predicate isMissingParameter(AngularJS::InjectableFunction f, string msg, ASTNode location) {
+predicate isMissingParameter(AngularJS::InjectableFunction f, string msg, AstNode location) {
   exists(int paramCount, int injectionCount |
     DataFlow::valueNode(location) = f and
     paramCount = f.asFunction().getNumParameter() and
@@ -34,13 +34,14 @@ predicate isMissingParameter(AngularJS::InjectableFunction f, string msg, ASTNod
         then dependenciesAreString = "dependency is"
         else dependenciesAreString = "dependencies are"
       ) and
-      msg = "This function has " + paramCount + " " + parametersString + ", but " + injectionCount +
-          " " + dependenciesAreString + " injected into it."
+      msg =
+        "This function has " + paramCount + " " + parametersString + ", but " + injectionCount + " "
+          + dependenciesAreString + " injected into it."
     )
   )
 }
 
-from AngularJS::InjectableFunction f, string message, ASTNode location
+from AngularJS::InjectableFunction f, string message, AstNode location
 where
   isUnusedParameter(f.asFunction(), message, location) or isMissingParameter(f, message, location)
 select location.(FirstLineOf), message

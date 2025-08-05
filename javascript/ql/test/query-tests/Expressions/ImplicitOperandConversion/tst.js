@@ -105,6 +105,19 @@ function l() {
     }
     g()|0;
     g();
+
+    var a = g() + 2;
+    var b = g() + "str";
 });
 
-// semmle-extractor-options: --experimental
+
+function m() {
+  var x = 19, y = "string";
+  
+  x %= y; // NOT OK
+  x += y; // OK 
+  x ||= y; // OK
+  x &&= y; // OK
+  x ??= y; // OK
+  x >>>= y; // NOT OK
+}

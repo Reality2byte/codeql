@@ -4,6 +4,7 @@
  *              allows for a cross-site scripting vulnerability.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 6.1
  * @precision high
  * @id java/xss
  * @tags security
@@ -11,24 +12,10 @@
  */
 
 import java
-import semmle.code.java.dataflow.FlowSources
-import semmle.code.java.dataflow.TaintTracking2
-import semmle.code.java.security.XSS
-import DataFlow2::PathGraph
+import semmle.code.java.security.XssQuery
+import XssFlow::PathGraph
 
-class XSSConfig extends TaintTracking2::Configuration {
-  XSSConfig() { this = "XSSConfig" }
-
-  override predicate isSource(DataFlow::Node source) { source instanceof RemoteFlowSource }
-
-  override predicate isSink(DataFlow::Node sink) { sink instanceof XssSink }
-
-  override predicate isSanitizer(DataFlow::Node node) {
-    node.getType() instanceof NumericType or node.getType() instanceof BooleanType
-  }
-}
-
-from DataFlow2::PathNode source, DataFlow2::PathNode sink, XSSConfig conf
-where conf.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "Cross-site scripting vulnerability due to $@.",
+from XssFlow::PathNode source, XssFlow::PathNode sink
+where XssFlow::flowPath(source, sink)
+select sink.getNode(), source, sink, "Cross-site scripting vulnerability due to a $@.",
   source.getNode(), "user-provided value"

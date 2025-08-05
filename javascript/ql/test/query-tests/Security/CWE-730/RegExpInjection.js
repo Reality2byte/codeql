@@ -37,17 +37,58 @@ app.get('/findKey', function(req, res) {
   var likelyString = x? defString: 42;
   var notString = {};
 
-  defString.match(input); // NOT OK
-  likelyString.match(input); // NOT OK
-  maybeString.match(input); // NOT OK
-  notString.match(input); // OK
+  if (defString.match(input)) {} // NOT OK
+  if (likelyString.match(input)) {} // NOT OK
+  if (maybeString.match(input)) {} // NOT OK
+  if (notString.match(input)) {} // OK
 
-  defString.search(input); // NOT OK
-  likelyString.search(input); // NOT OK
-  maybeString.search(input); // NOT OK
-  notString.search(input); // OK
+  if (defString.search(input) > -1) {} // NOT OK
+  if (likelyString.search(input) > -1) {} // NOT OK
+  if (maybeString.search(input) > -1) {} // NOT OK
+  if (notString.search(input) > -1) {} // OK
 
-  URI(`${protocol}://${host}${path}`).search(input); // OK, but still flagged
+  URI(`${protocol}://${host}${path}`).search(input); // OK
   URI(`${protocol}://${host}${path}`).search(input).href(); // OK
   unknown.search(input).unknown; // OK
+
+  new RegExp(key.split(".").filter(x => x).join("-")); // NOT OK
+});
+
+import * as Search from './search';
+
+app.get('/findKey', function(req, res) {
+  var key = req.param("key"), input = req.param("input");
+
+  Search.search(input); // OK!
+
+  new RegExp(input); // NOT OK
+
+  var sanitized = input.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+  new RegExp(sanitized); // OK
+});
+
+function escape1(pattern) {
+  return pattern.replace(/[\x00-\x7f]/g,
+    function(s) { return '\\x' + ('00' + s.charCodeAt().toString(16)).substr(-2); });
+}
+
+function escape2(str){
+  return str.replace(/([\.$?*|{}\(\)\[\]\\\/\+\-^])/g, function(ch){
+    return "\\" + ch;
+});
+};
+
+app.get('/has-sanitizer', function(req, res) {
+  var input = req.param("input");
+
+  new RegExp(escape1(input)); // OK
+  new RegExp(escape2(input)); // OK
+
+  new RegExp("^.*\.(" + input.replace(/,/g, "|") + ")$"); // NOT OK
+});
+
+app.get("argv", function(req, res) {
+    new RegExp(`^${process.env.HOME}/Foo/bar.app$`); // NOT OK
+
+    new RegExp(`^${process.argv[1]}/Foo/bar.app$`); // NOT OK
 });

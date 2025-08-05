@@ -1,6 +1,6 @@
 namespace staticlocals {
 
-int g() {
+static int g() {
     return 1;
 }
 
@@ -8,7 +8,7 @@ int h() {
     return 1;
 }
 
-void f() {
+static void f() {
     static int i = g(), j = h();
     static int k = g();
     ;
@@ -28,5 +28,17 @@ void f2() {
     static int j = addOne(2);
     static C c{};
 }
+
+template<typename T>
+struct Sizeof {
+  enum sizeof_enum { value = sizeof(T) };
+};
+
+template<typename T>
+void f3() {
+  static int i = Sizeof<T>::value;
+}
+
+template void f3<int>();
 
 }

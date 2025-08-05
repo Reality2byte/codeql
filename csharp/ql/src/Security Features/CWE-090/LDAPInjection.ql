@@ -4,6 +4,7 @@
  *              malicious LDAP code by the user.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.8
  * @precision high
  * @id cs/ldap-injection
  * @tags security
@@ -11,10 +12,10 @@
  */
 
 import csharp
-import semmle.code.csharp.security.dataflow.LDAPInjection::LDAPInjection
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.LDAPInjectionQuery
+import LdapInjection::PathGraph
 
-from TaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "$@ flows to here and is used in an LDAP query.",
-  source.getNode(), "User-provided value"
+from LdapInjection::PathNode source, LdapInjection::PathNode sink
+where LdapInjection::flowPath(source, sink)
+select sink.getNode(), source, sink, "This LDAP query depends on a $@.", source.getNode(),
+  "user-provided value"

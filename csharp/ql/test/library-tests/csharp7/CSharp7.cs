@@ -1,5 +1,3 @@
-// semmle-extractor-options: /r:System.Linq.dll
-
 using System;
 using System.Linq;
 using System.Collections.Generic;
@@ -61,9 +59,9 @@ class OutVariables
 
 class Tuples
 {
-    (int, int) F()
+    (int A, int B) F()
     {
-        return (1, 2);
+        return (A: 1, B: 2);
     }
 
     void Expressions()
@@ -71,7 +69,7 @@ class Tuples
         (var x, var y) = F();
         var z = F();
         (x, y) = F();
-        x = F().Item1;
+        x = F().A;
         (x, y, z.Item1) = (1, 2, 3);
         (x, y) = (x, y) = (1, 2);
         (var a, (var b, var c)) = (1, z);
@@ -148,9 +146,10 @@ class LocalFunctions
             return f9(1);
         }
 
+        Action a = () =>
         {
             int f9() => 0;
-        }
+        };
 
         return f1(2);
     }
@@ -162,7 +161,7 @@ class LocalFunctions
 
         U h<T, U>(T t, U u)
         {
-            int f2() => f<T>();
+            int f2<S>(S s, T _t) => f<T>();
             f<T>();
             return g(u);
         }
@@ -295,7 +294,7 @@ class ForLoops
 {
     void Test()
     {
-        for(int x=0; x<10 && x is int y; ++x)
+        for (int x = 0; x < 10 && x is int y; ++x)
         {
             Console.WriteLine(y);
         }

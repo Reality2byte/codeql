@@ -7,7 +7,7 @@ public class A {
       new Object();
     } catch(Exception e) {
       if (e == null) { // Useless check
-        throw new Exception();
+        throw new Error();
       }
     }
   }
@@ -16,7 +16,7 @@ public class A {
     if (o instanceof A) {
       A a = (A)o;
       if (a != null) { // Useless check
-        throw new Exception();
+        throw new Error();
       }
     }
   }
@@ -43,5 +43,14 @@ public class A {
       return x;
     }
     return null;
+  }
+
+  private final Object finalObj = new Object();
+
+  public void ex12() {
+    finalObj.hashCode();
+    if (finalObj != null) { // Useless check
+      finalObj.hashCode();
+    }
   }
 }

@@ -1,6 +1,8 @@
 package com.semmle.js.parser;
 
-import com.semmle.jcorn.CustomParser;
+import java.util.ArrayList;
+import java.util.List;
+
 import com.semmle.jcorn.Options;
 import com.semmle.jcorn.SyntaxError;
 import com.semmle.jcorn.jsx.JSXOptions;
@@ -10,8 +12,6 @@ import com.semmle.js.ast.Token;
 import com.semmle.js.extractor.ExtractorConfig;
 import com.semmle.js.extractor.ExtractorConfig.ECMAVersion;
 import com.semmle.js.extractor.ExtractorConfig.SourceType;
-import java.util.ArrayList;
-import java.util.List;
 
 public class JcornWrapper {
   /** Parse source code as a program. */
@@ -28,20 +28,29 @@ public class JcornWrapper {
             .onToken(tokens)
             .preserveParens(true)
             .allowReturnOutsideFunction(true);
-    if (config.isMozExtensions()) options.mozExtensions(true);
-    if (config.isJscript()) options.jscript(true);
-    if (config.isJsx()) options = new JSXOptions(options);
     if (config.isEsnext()) options.esnext(true);
-    if (config.isV8Extensions()) options.v8Extensions(true);
-    if (config.isE4X()) options.e4x(true);
 
     Program program = null;
     List<ParseError> errors = new ArrayList<>();
+    
     try {
-      if (config.isTolerateParseErrors())
-        options.onRecoverableError((err) -> errors.add(mkParseError(err)));
-
-      program = new CustomParser(options, source, 0).parse();
+      try {
+        // First try to parse as a regular JavaScript program.
+        program = sourceType.createParser(options, source, 0).parse();
+      } catch (SyntaxError e) {
+        // If that fails, try to enable all the extensions that we support.
+        if (config.isTolerateParseErrors())
+          options.onRecoverableError((err) -> errors.add(mkParseError(err)));
+        comments.clear();
+        tokens.clear();
+        if (config.isMozExtensions()) options.mozExtensions(true);
+        if (config.isJscript()) options.jscript(true);
+        if (config.isJsx()) options = new JSXOptions(options);
+        if (config.isV8Extensions()) options.v8Extensions(true);
+        if (config.isE4X()) options.e4x(true);
+        if (config.isEsnext()) options.allowFlowTypes(true); // allow the flow-parser to parse types.
+        program = sourceType.createParser(options, source, 0).parse();
+      }
     } catch (SyntaxError e) {
       errors.add(mkParseError(e));
     }

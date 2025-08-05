@@ -1,8 +1,14 @@
 package com.semmle.js.extractor;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import com.semmle.js.ast.Comment;
 import com.semmle.js.ast.Node;
 import com.semmle.js.ast.Token;
+import com.semmle.js.extractor.ExtractionMetrics.ExtractionPhase;
 import com.semmle.js.extractor.ExtractorConfig.ECMAVersion;
 import com.semmle.js.extractor.ExtractorConfig.Platform;
 import com.semmle.js.extractor.ExtractorConfig.SourceType;
@@ -13,9 +19,7 @@ import com.semmle.util.exception.Exceptions;
 import com.semmle.util.exception.UserError;
 import com.semmle.util.trap.TrapWriter;
 import com.semmle.util.trap.TrapWriter.Label;
-import java.util.ArrayList;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import com.semmle.js.extractor.ParseResultInfo;
 
 /**
  * Extractor for populating JavaScript source code, including AST information, lexical information
@@ -34,14 +38,14 @@ public class JSExtractor {
   private static final Pattern containsModuleIndicator =
       Pattern.compile("(?m)^([ \t]*)(import|export|goog\\.module)\\b");
 
-  public Pair<Label, LoCInfo> extract(
-      TextualExtractor textualExtractor, String source, int toplevelKind, ScopeManager scopeManager)
+  public Pair<Label, ParseResultInfo> extract(
+      TextualExtractor textualExtractor, String source, TopLevelKind toplevelKind, ScopeManager scopeManager)
       throws ParseError {
     // if the file starts with `{ "<string>":` it won't parse as JavaScript; try parsing as JSON
     // instead
     if (FileExtractor.JSON_OBJECT_START.matcher(textualExtractor.getSource()).matches()) {
       try {
-        LoCInfo loc =
+        ParseResultInfo loc =
             new JSONExtractor(config.withTolerateParseErrors(false)).extract(textualExtractor);
         return Pair.make(null, loc);
       } catch (UserError ue) {
@@ -52,7 +56,8 @@ public class JSExtractor {
 
     SourceType sourceType = establishSourceType(source, true);
 
-    JSParser.Result parserRes = JSParser.parse(config, sourceType, source);
+    JSParser.Result parserRes =
+        JSParser.parse(config, sourceType, source, textualExtractor.getMetrics());
     return extract(textualExtractor, source, toplevelKind, scopeManager, sourceType, parserRes);
   }
 
@@ -79,21 +84,22 @@ public class JSExtractor {
     return SourceType.SCRIPT;
   }
 
-  public Pair<Label, LoCInfo> extract(
+  public Pair<Label, ParseResultInfo> extract(
       TextualExtractor textualExtractor,
       String source,
-      int toplevelKind,
+      TopLevelKind toplevelKind,
       ScopeManager scopeManager,
       SourceType sourceType,
       JSParser.Result parserRes)
       throws ParseError {
+    textualExtractor.getMetrics().startPhase(ExtractionPhase.JSExtractor_extract);
     Label toplevelLabel;
     TrapWriter trapwriter = textualExtractor.getTrapwriter();
     LocationManager locationManager = textualExtractor.getLocationManager();
     Platform platform = config.getPlatform();
     Node ast = parserRes.getAST();
     LexicalExtractor lexicalExtractor;
-    LoCInfo loc;
+    ParseResultInfo loc;
     if (ast != null) {
       platform = getPlatform(platform, ast);
       if (sourceType == SourceType.SCRIPT && platform == Platform.NODE) {
@@ -102,42 +108,43 @@ public class JSExtractor {
 
       lexicalExtractor =
           new LexicalExtractor(textualExtractor, parserRes.getTokens(), parserRes.getComments());
-      ASTExtractor scriptExtractor = new ASTExtractor(lexicalExtractor, scopeManager);
+      ASTExtractor scriptExtractor = new ASTExtractor(config, lexicalExtractor, scopeManager);
       toplevelLabel = scriptExtractor.getToplevelLabel();
-
       lexicalExtractor.extractComments(toplevelLabel);
       loc = lexicalExtractor.extractLines(parserRes.getSource(), toplevelLabel);
       lexicalExtractor.extractTokens(toplevelLabel);
       new JSDocExtractor(textualExtractor).extract(lexicalExtractor.getComments());
       lexicalExtractor.purge();
 
-      scriptExtractor.extract(ast, platform, sourceType, toplevelKind);
+      parserRes.getErrors().addAll(scriptExtractor.extract(ast, platform, sourceType, toplevelKind));
       new CFGExtractor(scriptExtractor).extract(ast);
     } else {
       lexicalExtractor =
           new LexicalExtractor(textualExtractor, new ArrayList<Token>(), new ArrayList<Comment>());
-      ASTExtractor scriptExtractor = new ASTExtractor(lexicalExtractor, null);
+      ASTExtractor scriptExtractor = new ASTExtractor(config, lexicalExtractor, null);
       toplevelLabel = scriptExtractor.getToplevelLabel();
 
-      trapwriter.addTuple("toplevels", toplevelLabel, toplevelKind);
+      trapwriter.addTuple("toplevels", toplevelLabel, toplevelKind.getValue());
       locationManager.emitSnippetLocation(toplevelLabel, 1, 1, 1, 1);
-      loc = new LoCInfo(0, 0);
+      loc = new ParseResultInfo(0, 0, Collections.emptyList());
     }
 
+    loc.addParseErrors(parserRes.getErrors());
     for (ParseError parseError : parserRes.getErrors()) {
       if (!config.isTolerateParseErrors()) throw parseError;
-
       Label key = trapwriter.freshLabel();
       String errorLine = textualExtractor.getLine(parseError.getPosition().getLine());
-      trapwriter.addTuple("jsParseErrors", key, toplevelLabel, "Error: " + parseError, errorLine);
+      trapwriter.addTuple("js_parse_errors", key, toplevelLabel, "Error: " + parseError, errorLine);
       locationManager.emitErrorLocation(
           key, parseError.getPosition(), textualExtractor.getNumLines());
       lexicalExtractor.extractLines(source, toplevelLabel);
     }
 
-    if (config.isExterns()) textualExtractor.getTrapwriter().addTuple("isExterns", toplevelLabel);
+    if (config.isExterns()) textualExtractor.getTrapwriter().addTuple("is_externs", toplevelLabel);
     if (platform == Platform.NODE && sourceType == SourceType.COMMONJS_MODULE)
-      textualExtractor.getTrapwriter().addTuple("isNodejs", toplevelLabel);
+      textualExtractor.getTrapwriter().addTuple("is_nodejs", toplevelLabel);
+
+    textualExtractor.getMetrics().stopPhase(ExtractionPhase.JSExtractor_extract);
 
     return Pair.make(toplevelLabel, loc);
   }

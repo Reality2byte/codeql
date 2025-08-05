@@ -1,12 +1,15 @@
 package com.semmle.js.extractor;
 
+import java.util.Collections;
+import java.util.List;
+
 import com.semmle.js.ast.Comment;
 import com.semmle.js.ast.Position;
 import com.semmle.js.ast.SourceElement;
 import com.semmle.js.ast.Token;
+import com.semmle.js.extractor.ExtractionMetrics.ExtractionPhase;
 import com.semmle.util.trap.TrapWriter;
 import com.semmle.util.trap.TrapWriter.Label;
-import java.util.List;
 
 /**
  * Extractor for populating lexical information about a JavaScript file, including comments and
@@ -27,7 +30,11 @@ public class LexicalExtractor {
     this.tokens = tokens;
     this.comments = comments;
   }
-
+  
+  public TextualExtractor getTextualExtractor() {
+    return textualExtractor;
+  }
+  
   public TrapWriter getTrapwriter() {
     return trapwriter;
   }
@@ -40,9 +47,16 @@ public class LexicalExtractor {
     return comments;
   }
 
-  public LoCInfo extractLines(String src, Label toplevelKey) {
+  public ExtractionMetrics getMetrics() {
+    return textualExtractor.getMetrics();
+  }
+
+  public ParseResultInfo extractLines(String src, Label toplevelKey) {
+    textualExtractor.getMetrics().startPhase(ExtractionPhase.LexicalExtractor_extractLines);
     Position end = textualExtractor.extractLines(src, toplevelKey);
-    return emitNumlines(toplevelKey, new Position(1, 0, 0), end);
+    ParseResultInfo info = emitNumlines(toplevelKey, new Position(1, 0, 0), end);
+    textualExtractor.getMetrics().stopPhase(ExtractionPhase.LexicalExtractor_extractLines);
+    return info;
   }
 
   /**
@@ -52,7 +66,7 @@ public class LexicalExtractor {
    * @param start the start position of the node
    * @param end the end position of the node
    */
-  public LoCInfo emitNumlines(Label key, Position start, Position end) {
+  public ParseResultInfo emitNumlines(Label key, Position start, Position end) {
     int num_code = 0, num_comment = 0, num_lines = end.getLine() - start.getLine() + 1;
 
     if (tokens != null && comments != null) {
@@ -91,7 +105,7 @@ public class LexicalExtractor {
     }
 
     trapwriter.addTuple("numlines", key, num_lines, num_code, num_comment);
-    return new LoCInfo(num_code, num_comment);
+    return new ParseResultInfo(num_code, num_comment, Collections.emptyList());
   }
 
   private <T extends SourceElement> int findNode(List<T> ts, Position start) {
@@ -112,11 +126,11 @@ public class LexicalExtractor {
   }
 
   public void extractTokens(Label toplevelKey) {
+    textualExtractor.getMetrics().startPhase(ExtractionPhase.LexicalExtractor_extractTokens);
     int j = 0;
     for (int i = 0, n = tokens.size(), idx = 0; i < n; ++i) {
       Token token = tokens.get(i);
       if (token == null) continue;
-
       Label key = trapwriter.freshLabel();
       int kind = -1;
       switch (token.getType()) {
@@ -164,6 +178,7 @@ public class LexicalExtractor {
         if (token.getLoc().equals(next.getLoc())) tokens.set(i + 1, null);
       }
     }
+    textualExtractor.getMetrics().stopPhase(ExtractionPhase.LexicalExtractor_extractTokens);
   }
 
   public void extractComments(Label toplevelKey) {

@@ -6,12 +6,12 @@
  * @treemap.warnOn lowValues
  * @metricType file
  * @metricAggregate avg sum max
- * @precision very-high
  * @id py/lines-of-comments-in-files
  */
+
 import python
 
 from Module m, int n
-where n = m.getMetrics().getNumberOfLinesOfComments() + m.getMetrics().getNumberOfLinesOfDocStrings()
-select m, n
-order by n desc
+where
+  n = m.getMetrics().getNumberOfLinesOfComments() + m.getMetrics().getNumberOfLinesOfDocStrings()
+select m, n order by n desc

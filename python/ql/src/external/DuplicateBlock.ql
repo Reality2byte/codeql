@@ -14,20 +14,9 @@
  * @precision medium
  * @id py/duplicate-block
  */
-import CodeDuplication
 
-predicate sorted_by_location(DuplicateBlock x, DuplicateBlock y) {
-    if x.sourceFile() = y.sourceFile() then
-        x.sourceStartLine() < y.sourceStartLine()
-    else
-        x.sourceFile().getName() < y.sourceFile().getName()
-}
+import python
 
-from DuplicateBlock d, DuplicateBlock other
-where d.sourceLines() > 10 and
-      other.getEquivalenceClass() = d.getEquivalenceClass() and
-      sorted_by_location(other, d)
-select 
-   d, 
-   "Duplicate code: " + d.sourceLines() + " lines are duplicated at " +
-   other.sourceFile().getShortName() + ":" + other.sourceStartLine().toString()
+from BasicBlock d
+where none()
+select d, "Duplicate code: " + "-1" + " lines are duplicated at " + "<file>" + ":" + "-1"

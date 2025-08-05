@@ -27,7 +27,8 @@ class DangerousExpression extends Expr {
       e instanceof MethodCall
       or
       e instanceof ArrayAccess
-    )
+    ) and
+    not exists(Expr e | this = e.getParent*() | e.(Call).getTarget().getAParameter().isOutOrRef())
   }
 }
 
@@ -40,9 +41,9 @@ class NonShortCircuit extends BinaryBitwiseOperation {
       this instanceof BitwiseOrExpr
     ) and
     not exists(AssignBitwiseOperation abo | abo.getExpandedAssignment().getRValue() = this) and
-    getLeftOperand().getType() instanceof BoolType and
-    getRightOperand().getType() instanceof BoolType and
-    getRightOperand() instanceof DangerousExpression
+    this.getLeftOperand().getType() instanceof BoolType and
+    this.getRightOperand().getType() instanceof BoolType and
+    this.getRightOperand() instanceof DangerousExpression
   }
 }
 

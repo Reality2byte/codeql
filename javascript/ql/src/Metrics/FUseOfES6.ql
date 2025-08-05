@@ -6,11 +6,10 @@
  * @treemap.warnOn highValues
  * @metricType file
  * @metricAggregate avg sum max
- * @precision very-high
  * @id js/es20xx-features-per-file
  */
 
 import ES20xxFeatures
 
 from File f
-select f, count(ASTNode nd | nd.getFile() = f and isES20xxFeature(nd, _, _)) as n order by n desc
+select f, count(AstNode nd | nd.getFile() = f and isES20xxFeature(nd, _, _)) as n order by n desc

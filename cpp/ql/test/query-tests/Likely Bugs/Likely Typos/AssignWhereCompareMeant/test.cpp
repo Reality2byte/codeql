@@ -98,3 +98,76 @@ void g(int *i_p, int cond) {
   if (y = 1) { // GOOD: y might not be initialized so it is probably intentional.
   }
 }
+
+template<typename>
+void h() {
+  int x;
+  if(x = 0) { // GOOD: x is not initialized so this is probably intentional
+  }
+
+  int y = 0;
+  if((y = 1)) { // GOOD
+  }
+
+  int z = 0;
+  if(z = 1) { // BAD
+  }
+}
+
+void f() {
+  h<int>();
+}
+
+void f2() {
+  const char* sz = "abc";
+
+  if(sz = "def") { // GOOD: a == comparison with a string literal is probably not the intent here
+  }
+}
+
+void f3(int x, int y) {
+  if(x == 1 && (y = 2)) { // GOOD: the programmer seems to be okay with unparenthesized
+                          // comparison operands, so the parenthesis was used to mark this
+                          // as an assignment
+  }
+
+  if((x == 1) && (y = 2)) { // BAD
+  }
+
+  long z = x;
+  if(((z == 42) || (y = 2)) && (x == 1)) { // BAD
+  }
+
+  if((y = 2) && (x == z || x == 1)) { // GOOD
+  }
+
+  if(((x == 42) || x == 1) && (y = 2)) { // BAD
+  }
+
+  if(x == 10 || (x == 42 && x == 1) && (y = 2)) { // GOOD
+  }
+
+  if(x == 10 || ((x == 42) && (y = 2)) && (z == 1)) { // BAD
+  }
+
+  if((x == 10) || ((z == z) && (x == 1)) && (y = 2)) { // BAD
+  }
+}
+
+bool use(int);
+
+void f4(int x, bool b) {
+  if((x = 10) && use(x)) {} // GOOD: This is likely just a short-hand way of writing an assignment
+                            // followed by a boolean check.
+  if((x = 10) && b && use(x)) {} // GOOD: Same reason as above
+  if((x = 10) && use(x) && b) {} // GOOD: Same reason as above
+  if((x = 10) && (use(x) && b)) {} // GOOD: Same reason as above
+
+  if(use(x) && b && (x = 10)) {} // BAD: The assignment is the last thing that happens in the comparison.
+                                 // This doesn't match the usual pattern.
+  if((use(x) && b) && (x = 10)) {} // BAD: Same reason as above
+  if(use(x) && (b && (x = 10))) {} // BAD: Same reason as above
+
+  if((x = 10) || use(x)) {} // BAD: This doesn't follow the usual style of writing an assignment in
+                            // a boolean check.
+}

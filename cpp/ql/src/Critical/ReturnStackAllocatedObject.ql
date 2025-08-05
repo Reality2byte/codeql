@@ -4,9 +4,12 @@
  * @kind problem
  * @id cpp/return-stack-allocated-object
  * @problem.severity warning
+ * @security-severity 2.1
  * @tags reliability
  *       security
  *       external/cwe/cwe-562
+ * @deprecated This query is not suitable for production use and has been deprecated. Use
+ *             cpp/return-stack-allocated-memory instead.
  */
 
 import semmle.code.cpp.pointsto.PointsTo
@@ -20,11 +23,10 @@ class ReturnPointsToExpr extends PointsToExpr {
   ReturnStmt getReturnStmt() { result.getExpr().getFullyConverted() = this }
 }
 
-from ReturnPointsToExpr ret, LocalVariable local, float confidence
+from ReturnPointsToExpr ret, StackVariable local, float confidence
 where
   ret.pointsTo() = local and
   ret.getReturnStmt().getEnclosingFunction() = local.getFunction() and
-  not local.isStatic() and
   confidence = ret.confidence() and
   confidence > 0.01
 select ret,

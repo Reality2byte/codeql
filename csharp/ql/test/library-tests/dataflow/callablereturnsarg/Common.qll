@@ -1,38 +1,47 @@
 import csharp
 private import semmle.code.csharp.controlflow.Guards
 
-class Configuration extends DataFlow::Configuration {
-  Configuration() { this = "Configuration" }
+private predicate outRefDef(DataFlow::ExprNode ne, int outRef) {
+  exists(Ssa::ExplicitDefinition def, Parameter outRefParameter |
+    outRefParameter.isOutOrRef() and
+    ne.getExpr() = def.getADefinition().getSource() and
+    def.isLiveOutRefParameterDefinition(outRefParameter) and
+    outRef = outRefParameter.getPosition()
+  )
+}
 
-  override predicate isSource(DataFlow::Node source) { any() }
+module Config implements DataFlow::ConfigSig {
+  predicate isSource(DataFlow::Node source) { source instanceof DataFlow::ParameterNode }
 
-  override predicate isSink(DataFlow::Node sink) { any() }
+  predicate isSink(DataFlow::Node sink) {
+    any(Callable c).canReturn(sink.asExpr()) or outRefDef(sink, _)
+  }
 
-  override predicate isBarrier(DataFlow::Node node) {
+  predicate isBarrier(DataFlow::Node node) {
     exists(AbstractValues::NullValue nv | node.(GuardedDataFlowNode).mustHaveValue(nv) |
       nv.isNull()
     )
   }
 }
 
-predicate flowOutFromParameter(DataFlow::Configuration c, Parameter p) {
-  exists(DataFlow::ExprNode ne, DataFlow::ParameterNode np |
-    p.getCallable().canReturn(ne.getExpr()) and
-    np.getParameter() = p and
-    c.hasFlow(np, ne)
-  )
+module FlowOut<DataFlow::GlobalFlowSig Input> {
+  predicate flowOutFromParameter(Parameter p) {
+    exists(DataFlow::ExprNode ne, DataFlow::ParameterNode np |
+      p.getCallable().canReturn(ne.getExpr()) and
+      np.getParameter() = p and
+      Input::flow(np, ne)
+    )
+  }
+
+  predicate flowOutFromParameterOutOrRef(Parameter p, int outRef) {
+    exists(DataFlow::ExprNode ne, DataFlow::ParameterNode np |
+      outRefDef(ne, outRef) and
+      np.getParameter() = p and
+      Input::flow(np, ne)
+    )
+  }
 }
 
-predicate flowOutFromParameterOutOrRef(DataFlow::Configuration c, Parameter p, int outRef) {
-  exists(
-    DataFlow::ExprNode ne, Ssa::ExplicitDefinition def, DataFlow::ParameterNode np,
-    Parameter outRefParameter
-  |
-    outRefParameter.isOutOrRef() and
-    np.getParameter() = p and
-    ne.getExpr() = def.getADefinition().getSource() and
-    def.isLiveOutRefParameterDefinition(outRefParameter) and
-    c.hasFlow(np, ne) and
-    outRef = outRefParameter.getPosition()
-  )
-}
+module Data = FlowOut<DataFlow::Global<Config>>;
+
+module Taint = FlowOut<TaintTracking::Global<Config>>;

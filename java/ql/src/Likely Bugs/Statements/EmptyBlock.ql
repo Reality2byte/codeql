@@ -13,7 +13,7 @@
 import semmle.code.java.Statement
 
 /** A block without statements or comments. */
-private Block emptyBlock() {
+private BlockStmt emptyBlock() {
   result.getNumStmt() = 0 and
   result.getLocation().getNumberOfCommentLines() = 0
 }
@@ -48,14 +48,15 @@ predicate blockParent(Stmt empty, string msg) {
     or
     empty.getParent() instanceof LoopStmt and msg = "The body of a loop should not be empty."
     or
-    empty.getParent() instanceof Block and
-    empty instanceof Block and
+    empty.getParent() instanceof BlockStmt and
+    empty instanceof BlockStmt and
     msg = "This block should not be empty."
   )
 }
 
 from Stmt empty, string msg
 where
+  empty.getFile().isJavaSourceFile() and
   empty = emptyBody() and
   blockParent(empty, msg)
 select empty, msg + " Typographical error or missing code?"

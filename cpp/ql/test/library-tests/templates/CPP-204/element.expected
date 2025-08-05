@@ -1,6 +1,15 @@
 | file://:0:0:0:0 |  |
 | file://:0:0:0:0 | 0 |
 | file://:0:0:0:0 | (global namespace) |
+| file://:0:0:0:0 | (unnamed parameter 0) |
+| file://:0:0:0:0 | (unnamed parameter 0) |
+| file://:0:0:0:0 | B |
+| file://:0:0:0:0 | X |
+| file://:0:0:0:0 | X |
+| file://:0:0:0:0 | X |
+| file://:0:0:0:0 | X |
+| file://:0:0:0:0 | Y |
+| file://:0:0:0:0 | __super |
 | file://:0:0:0:0 | __va_list_tag |
 | file://:0:0:0:0 | __va_list_tag & |
 | file://:0:0:0:0 | __va_list_tag && |
@@ -20,8 +29,6 @@
 | file://:0:0:0:0 | operator= |
 | file://:0:0:0:0 | operator= |
 | file://:0:0:0:0 | overflow_arg_area |
-| file://:0:0:0:0 | p#0 |
-| file://:0:0:0:0 | p#0 |
 | file://:0:0:0:0 | reg_save_area |
 | file://:0:0:0:0 | void * |
 | test.cpp:0:0:0:0 | test.cpp |

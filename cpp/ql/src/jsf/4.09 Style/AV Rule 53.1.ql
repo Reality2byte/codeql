@@ -8,14 +8,11 @@
  *       portability
  *       external/jsf
  */
+
 import cpp
 
 from Include i, string name
-where name = i.getIncludeText()
-      and (name.matches("%'%") or
-           name.matches("%\\\\%") or
-           name.matches("%/*%") or
-           name.matches("%//%") or
-           name.matches("%\"%\"%\"%") or
-           name.matches("%<%\"%>%"))
-select i, "AV Rule 53.1: Invalid character sequence in header file name '" + name + "'"
+where
+  name = i.getIncludeText() and
+  name.matches(["%'%", "%\\\\%", "%/*%", "%//%", "%\"%\"%\"%", "%<%\"%>%"])
+select i, "AV Rule 53.1: Invalid character sequence in header file name '" + name + "'."

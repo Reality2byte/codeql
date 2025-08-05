@@ -15,30 +15,22 @@ import csharp
 import semmle.code.csharp.commons.ComparisonTest
 import semmle.code.csharp.commons.StructuralComparison as SC
 
-/** A structural comparison configuration for comparing the conditions of nested `for` loops. */
-class NestedForConditions extends SC::StructuralComparisonConfiguration {
-  NestedForConditions() { this = "Compare nested for conditions" }
-
-  override predicate candidate(ControlFlowElement e1, ControlFlowElement e2) {
-    exists(NestedForLoopSameVariable nested |
-      e1 = nested.getInnerForStmt().getCondition() and
-      e2 = nested.getOuterForStmt().getCondition()
-    )
-  }
+private predicate hasChild(Stmt outer, Element child) {
+  outer = child.getParent() and
+  (outer instanceof ForStmt or outer = any(ForStmt f).getBody())
+  or
+  hasChild(outer, child.getParent())
 }
 
 /** A nested `for` statement that shares the same iteration variable as an outer `for` statement. */
 class NestedForLoopSameVariable extends ForStmt {
   ForStmt outer;
-
   Variable iteration;
-
   MutatorOperation innerUpdate;
-
   MutatorOperation outerUpdate;
 
   NestedForLoopSameVariable() {
-    outer = this.getParent+() and
+    hasChild(outer, this) and
     innerUpdate = this.getAnUpdate() and
     outerUpdate = outer.getAnUpdate() and
     innerUpdate.getOperand() = iteration.getAnAccess() and
@@ -57,9 +49,7 @@ class NestedForLoopSameVariable extends ForStmt {
   }
 
   private predicate haveSameCondition() {
-    exists(NestedForConditions config |
-      config.same(getInnerForStmt().getCondition(), getOuterForStmt().getCondition())
-    )
+    SC::sameGvn(this.getInnerForStmt().getCondition(), this.getOuterForStmt().getCondition())
   }
 
   private predicate haveSameUpdate() {
@@ -70,7 +60,7 @@ class NestedForLoopSameVariable extends ForStmt {
 
   /** Holds if the logic is deemed to be correct in limited circumstances. */
   predicate isSafe() {
-    haveSameUpdate() and haveSameCondition() and not exists(getAnUnguardedAccess())
+    this.haveSameUpdate() and this.haveSameCondition() and not exists(this.getAnUnguardedAccess())
   }
 
   /** Gets the result element. */
@@ -83,30 +73,28 @@ class NestedForLoopSameVariable extends ForStmt {
       location = outer.getLocation() and
       location.hasLocationInfo(_, startLine, _, _, _) and
       lineStr = startLine.toString() and
-      result = "Nested for statement uses loop variable " + name +
-          " of enclosing for statement (on line " + lineStr + ")."
+      result =
+        "Nested for statement uses loop variable " + name + " of enclosing for statement (on line " +
+          lineStr + ")."
     )
   }
 
   /** Finds elements inside the outer loop that are no longer guarded by the loop invariant. */
   private ControlFlow::Node getAnUnguardedNode() {
-    result.getElement().getParent+() = getOuterForStmt().getBody() and
+    hasChild(this.getOuterForStmt().getBody(), result.getAstNode()) and
     (
-      result = this
-            .getCondition()
-            .(ControlFlowElement)
-            .getAControlFlowExitNode()
-            .getAFalseSuccessor()
+      result =
+        this.getCondition().(ControlFlowElement).getAControlFlowExitNode().getAFalseSuccessor()
       or
-      exists(ControlFlow::Node mid | mid = getAnUnguardedNode() |
+      exists(ControlFlow::Node mid | mid = this.getAnUnguardedNode() |
         mid.getASuccessor() = result and
-        not exists(getAComparisonTest(result.getElement()))
+        not exists(this.getAComparisonTest(result.getAstNode()))
       )
     )
   }
 
   private VariableAccess getAnUnguardedAccess() {
-    result = getAnUnguardedNode().getElement() and
+    result = this.getAnUnguardedNode().getAstNode() and
     result.getTarget() = iteration
   }
 }

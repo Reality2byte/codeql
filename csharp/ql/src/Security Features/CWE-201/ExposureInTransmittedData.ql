@@ -3,6 +3,7 @@
  * @description Transmitting sensitive information to the user is a potential security risk.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 4.3
  * @precision high
  * @id cs/sensitive-data-transmission
  * @tags security
@@ -11,16 +12,13 @@
 
 import csharp
 import semmle.code.csharp.security.SensitiveActions
-import semmle.code.csharp.security.dataflow.XSS
-import semmle.code.csharp.security.dataflow.Email
+import semmle.code.csharp.security.dataflow.flowsinks.Remote
 import semmle.code.csharp.frameworks.system.data.Common
 import semmle.code.csharp.frameworks.System
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import ExposureInTransmittedData::PathGraph
 
-class TaintTrackingConfiguration extends TaintTracking::Configuration {
-  TaintTrackingConfiguration() { this = "Exposure through transmitted data" }
-
-  override predicate isSource(DataFlow::Node source) {
+module ExposureInTransmittedDataConfig implements DataFlow::ConfigSig {
+  predicate isSource(DataFlow::Node source) {
     // `source` may contain a password
     source.asExpr() instanceof PasswordExpr
     or
@@ -42,15 +40,12 @@ class TaintTrackingConfiguration extends TaintTracking::Configuration {
     )
   }
 
-  override predicate isSink(DataFlow::Node sink) {
-    sink instanceof XSS::Sink
-    or
-    sink instanceof Email::Sink
-  }
+  predicate isSink(DataFlow::Node sink) { sink instanceof RemoteFlowSink }
 }
 
-from TaintTrackingConfiguration configuration, DataFlow::PathNode source, DataFlow::PathNode sink
-where configuration.hasFlowPath(source, sink)
-select sink.getNode(), source, sink,
-  "Sensitive information from $@ flows to here, and is transmitted to the user.", source.getNode(),
-  source.toString()
+module ExposureInTransmittedData = TaintTracking::Global<ExposureInTransmittedDataConfig>;
+
+from ExposureInTransmittedData::PathNode source, ExposureInTransmittedData::PathNode sink
+where ExposureInTransmittedData::flowPath(source, sink)
+select sink.getNode(), source, sink, "This data transmitted to the user depends on $@.",
+  source.getNode(), "sensitive information"

@@ -21,10 +21,10 @@ import Clones
 abstract class RedundantOperand extends StructurallyCompared {
   RedundantOperand() { exists(BinaryExpr parent | this = parent.getLeftOperand()) }
 
-  override Expr candidate() { result = getParent().(BinaryExpr).getRightOperand() }
+  override Expr candidate() { result = this.getParent().(BinaryExpr).getRightOperand() }
 
   /** Gets the expression to report when a pair of clones is found. */
-  Expr toReport() { result = getParent() }
+  Expr toReport() { result = this.getParent() }
 }
 
 /**
@@ -50,7 +50,7 @@ class IdemnecantExpr extends BinaryExpr {
 class RedundantIdemnecantOperand extends RedundantOperand {
   RedundantIdemnecantOperand() {
     exists(IdemnecantExpr parent |
-      parent = getParent() and
+      parent = this.getParent() and
       // exclude trivial cases like `1-1`
       not parent.getRightOperand().getUnderlyingValue() instanceof Literal
     )
@@ -64,7 +64,10 @@ class RedundantIdemnecantOperand extends RedundantOperand {
  * arguments to integers. For example, `x&x` is a common idiom for converting `x` to an integer.
  */
 class RedundantIdempotentOperand extends RedundantOperand {
-  RedundantIdempotentOperand() { getParent() instanceof LogicalBinaryExpr }
+  RedundantIdempotentOperand() {
+    this.getParent() instanceof LogicalBinaryExpr and
+    not exists(UpdateExpr e | e.getParentExpr+() = this)
+  }
 }
 
 /**
@@ -72,8 +75,8 @@ class RedundantIdempotentOperand extends RedundantOperand {
  */
 class AverageExpr extends DivExpr {
   AverageExpr() {
-    getLeftOperand().getUnderlyingValue() instanceof AddExpr and
-    getRightOperand().getIntValue() = 2
+    this.getLeftOperand().getUnderlyingValue() instanceof AddExpr and
+    this.getRightOperand().getIntValue() = 2
   }
 }
 
@@ -82,10 +85,14 @@ class AverageExpr extends DivExpr {
  */
 class RedundantAverageOperand extends RedundantOperand {
   RedundantAverageOperand() {
-    exists(AverageExpr aver | getParent().(AddExpr) = aver.getLeftOperand().getUnderlyingValue())
+    exists(AverageExpr aver |
+      this.getParent().(AddExpr) = aver.getLeftOperand().getUnderlyingValue()
+    )
   }
 
-  override AverageExpr toReport() { getParent() = result.getLeftOperand().getUnderlyingValue() }
+  override AverageExpr toReport() {
+    this.getParent() = result.getLeftOperand().getUnderlyingValue()
+  }
 }
 
 from RedundantOperand e, Expr f

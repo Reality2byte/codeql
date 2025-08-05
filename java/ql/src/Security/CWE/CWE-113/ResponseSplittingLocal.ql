@@ -4,6 +4,7 @@
  *              makes code vulnerable to attack by header splitting.
  * @kind path-problem
  * @problem.severity recommendation
+ * @security-severity 6.1
  * @precision medium
  * @id java/http-response-splitting-local
  * @tags security
@@ -11,24 +12,11 @@
  */
 
 import java
-import semmle.code.java.dataflow.FlowSources
-import ResponseSplitting
-import DataFlow::PathGraph
+import semmle.code.java.security.ResponseSplittingLocalQuery
+import ResponseSplittingLocalFlow::PathGraph
 
-class ResponseSplittingLocalConfig extends TaintTracking::Configuration {
-  ResponseSplittingLocalConfig() { this = "ResponseSplittingLocalConfig" }
-
-  override predicate isSource(DataFlow::Node source) { source instanceof LocalUserInput }
-
-  override predicate isSink(DataFlow::Node sink) { sink instanceof HeaderSplittingSink }
-
-  override predicate isSanitizer(DataFlow::Node node) {
-    node.getType() instanceof PrimitiveType or
-    node.getType() instanceof BoxedType
-  }
-}
-
-from DataFlow::PathNode source, DataFlow::PathNode sink, ResponseSplittingLocalConfig conf
-where conf.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "Response-splitting vulnerability due to this $@.",
+from ResponseSplittingLocalFlow::PathNode source, ResponseSplittingLocalFlow::PathNode sink
+where ResponseSplittingLocalFlow::flowPath(source, sink)
+select sink.getNode(), source, sink,
+  "This header depends on a $@, which may cause a response-splitting vulnerability.",
   source.getNode(), "user-provided value"

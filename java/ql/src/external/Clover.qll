@@ -1,3 +1,5 @@
+/** Provides classes and predicates for working with Clover reports. */
+
 import java
 
 /**
@@ -5,19 +7,20 @@ import java
  * top-level children (usually, in fact, there is only one) is
  * a tag with the name "coverage".
  */
-class CloverReport extends XMLFile {
+class CloverReport extends XmlFile {
   CloverReport() { this.getAChild().getName() = "coverage" }
 }
 
 /**
  * The Clover "coverage" tag contains one or more "projects".
  */
-class CloverCoverage extends XMLElement {
+class CloverCoverage extends XmlElement {
   CloverCoverage() {
     this.getParent() instanceof CloverReport and
     this.getName() = "coverage"
   }
 
+  /** Gets a project for this `coverage` element. */
   CloverProject getAProject() { result = this.getAChild() }
 }
 
@@ -26,7 +29,8 @@ class CloverCoverage extends XMLElement {
  * contains various numbers, aggregated to the different levels. They are
  * all subclasses of this class, to share code.
  */
-abstract class CloverMetricsContainer extends XMLElement {
+abstract class CloverMetricsContainer extends XmlElement {
+  /** Gets the Clover `metrics` child element for this element. */
   CloverMetrics getMetrics() { result = this.getAChild() }
 }
 
@@ -34,7 +38,7 @@ abstract class CloverMetricsContainer extends XMLElement {
  * A "metrics" element contains a range of numbers for the current
  * aggregation level.
  */
-class CloverMetrics extends XMLElement {
+class CloverMetrics extends XmlElement {
   CloverMetrics() {
     this.getParent() instanceof CloverMetricsContainer and
     this.getName() = "metrics"
@@ -42,45 +46,66 @@ class CloverMetrics extends XMLElement {
 
   private int attr(string name) { result = this.getAttribute(name).getValue().toInt() }
 
-  private float ratio(string name) { result = attr("covered" + name) / attr(name).(float) }
+  private float ratio(string name) {
+    result = this.attr("covered" + name) / this.attr(name).(float)
+  }
 
-  int getNumConditionals() { result = attr("conditionals") }
+  /** Gets the value of the `conditionals` attribute. */
+  int getNumConditionals() { result = this.attr("conditionals") }
 
-  int getNumCoveredConditionals() { result = attr("coveredconditionals") }
+  /** Gets the value of the `coveredconditionals` attribute. */
+  int getNumCoveredConditionals() { result = this.attr("coveredconditionals") }
 
-  int getNumStatements() { result = attr("statements") }
+  /** Gets the value of the `statements` attribute. */
+  int getNumStatements() { result = this.attr("statements") }
 
-  int getNumCoveredStatements() { result = attr("coveredstatements") }
+  /** Gets the value of the `coveredstatements` attribute. */
+  int getNumCoveredStatements() { result = this.attr("coveredstatements") }
 
-  int getNumElements() { result = attr("elements") }
+  /** Gets the value of the `elements` attribute. */
+  int getNumElements() { result = this.attr("elements") }
 
-  int getNumCoveredElements() { result = attr("coveredelements") }
+  /** Gets the value of the `coveredelements` attribute. */
+  int getNumCoveredElements() { result = this.attr("coveredelements") }
 
-  int getNumMethods() { result = attr("methods") }
+  /** Gets the value of the `methods` attribute. */
+  int getNumMethods() { result = this.attr("methods") }
 
-  int getNumCoveredMethods() { result = attr("coveredmethods") }
+  /** Gets the value of the `coveredmethods` attribute. */
+  int getNumCoveredMethods() { result = this.attr("coveredmethods") }
 
-  int getNumLoC() { result = attr("loc") }
+  /** Gets the value of the `loc` attribute. */
+  int getNumLoC() { result = this.attr("loc") }
 
-  int getNumNonCommentedLoC() { result = attr("ncloc") }
+  /** Gets the value of the `ncloc` attribute. */
+  int getNumNonCommentedLoC() { result = this.attr("ncloc") }
 
-  int getNumPackages() { result = attr("packages") }
+  /** Gets the value of the `packages` attribute. */
+  int getNumPackages() { result = this.attr("packages") }
 
-  int getNumFiles() { result = attr("files") }
+  /** Gets the value of the `files` attribute. */
+  int getNumFiles() { result = this.attr("files") }
 
-  int getNumClasses() { result = attr("classes") }
+  /** Gets the value of the `classes` attribute. */
+  int getNumClasses() { result = this.attr("classes") }
 
-  int getCloverComplexity() { result = attr("complexity") }
+  /** Gets the value of the `complexity` attribute. */
+  int getCloverComplexity() { result = this.attr("complexity") }
 
-  float getConditionalCoverage() { result = ratio("conditionals") }
+  /** Gets the ratio of the `coveredconditionals` attribute over the `conditionals` attribute. */
+  float getConditionalCoverage() { result = this.ratio("conditionals") }
 
-  float getStatementCoverage() { result = ratio("statements") }
+  /** Gets the ratio of the `coveredstatements` attribute over the `statements` attribute. */
+  float getStatementCoverage() { result = this.ratio("statements") }
 
-  float getElementCoverage() { result = ratio("elements") }
+  /** Gets the ratio of the `coveredelements` attribute over the `elements` attribute. */
+  float getElementCoverage() { result = this.ratio("elements") }
 
-  float getMethodCoverage() { result = ratio("methods") }
+  /** Gets the ratio of the `coveredmethods` attribute over the `methods` attribute. */
+  float getMethodCoverage() { result = this.ratio("methods") }
 
-  float getNonCommentedLoCRatio() { result = attr("ncloc") / attr("loc") }
+  /** Gets the ratio of the `ncloc` attribute over the `loc` attribute. */
+  float getNonCommentedLoCRatio() { result = this.attr("ncloc") / this.attr("loc") }
 }
 
 /**
@@ -100,7 +125,8 @@ class CloverPackage extends CloverMetricsContainer {
     this.getName() = "package"
   }
 
-  Package getRealPackage() { result.hasName(getAttribute("name").getValue()) }
+  /** Gets the Java package for this Clover package. */
+  Package getRealPackage() { result.hasName(this.getAttribute("name").getValue()) }
 }
 
 /**
@@ -122,12 +148,14 @@ class CloverClass extends CloverMetricsContainer {
     this.getName() = "class"
   }
 
-  CloverPackage getPackage() { result = getParent().(CloverFile).getParent() }
+  /** Gets the Clover package for this Clover class. */
+  CloverPackage getPackage() { result = this.getParent().(CloverFile).getParent() }
 
+  /** Gets the Java type for this Clover class. */
   RefType getRealClass() {
     result
-        .hasQualifiedName(getPackage().getAttribute("name").getValue(),
-          getAttribute("name").getValue())
+        .hasQualifiedName(this.getPackage().getAttribute("name").getValue(),
+          this.getAttribute("name").getValue())
   }
 }
 

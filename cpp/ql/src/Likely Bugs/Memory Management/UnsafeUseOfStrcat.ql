@@ -4,6 +4,7 @@
  *              may result in a buffer overflow
  * @kind problem
  * @problem.severity warning
+ * @security-severity 9.8
  * @precision medium
  * @id cpp/unsafe-strcat
  * @tags reliability
@@ -13,6 +14,7 @@
  *       external/cwe/cwe-120
  *       external/cwe/cwe-251
  */
+
 import cpp
 import Buffer
 
@@ -20,8 +22,7 @@ import Buffer
  * An access to a variable that is initialized by a constant
  * expression, and is never used as an lvalue anywhere else.
  */
-predicate isEffectivelyConstAccess(VariableAccess a)
-{
+predicate isEffectivelyConstAccess(VariableAccess a) {
   exists(Variable v |
     a.getTarget() = v and
     v.getInitializer().getExpr().isConstant() and
@@ -41,8 +42,8 @@ class StrcatSource extends VariableAccess {
 }
 
 from StrcatSource src
-where not src.getType() instanceof ArrayType and
-      not exists(BufferSizeExpr bse |
-        bse.getArg().(VariableAccess).getTarget() = src.getTarget()) and
-      not isEffectivelyConstAccess(src)
+where
+  not src.getType() instanceof ArrayType and
+  not exists(BufferSizeExpr bse | bse.getArg().(VariableAccess).getTarget() = src.getTarget()) and
+  not isEffectivelyConstAccess(src)
 select src.getStrcatCall(), "Always check the size of the source buffer when using strcat."

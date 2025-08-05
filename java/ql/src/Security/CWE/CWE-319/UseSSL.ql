@@ -3,6 +3,7 @@
  * @description Non-SSL connections can be intercepted by third parties.
  * @kind problem
  * @problem.severity recommendation
+ * @security-severity 7.5
  * @precision medium
  * @id java/non-ssl-connection
  * @tags security
@@ -13,8 +14,8 @@ import java
 import semmle.code.java.dataflow.TypeFlow
 import semmle.code.java.security.Encryption
 
-class URLConnection extends RefType {
-  URLConnection() {
+class UrlConnection extends RefType {
+  UrlConnection() {
     this.getAnAncestor().hasQualifiedName("java.net", "URLConnection") and
     not this.hasName("JarURLConnection")
   }
@@ -28,14 +29,14 @@ from MethodAccess m, Class c, string type
 where
   m.getQualifier().getType() = c and
   (
-    c instanceof URLConnection and type = "connection"
+    c instanceof UrlConnection and type = "connection"
     or
     c instanceof Socket and type = "socket"
   ) and
-  not c instanceof SSLClass and
+  not c instanceof SslClass and
   not exists(RefType t |
     exprTypeFlow(m.getQualifier(), t, _) and
-    t instanceof SSLClass
+    t instanceof SslClass
   ) and
   (
     m.getMethod().getName() = "getInputStream" or

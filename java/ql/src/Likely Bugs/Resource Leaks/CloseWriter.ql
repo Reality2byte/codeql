@@ -16,21 +16,20 @@
 import CloseType
 
 predicate writerType(RefType t) {
-  exists(RefType sup | sup = t.getASupertype*() |
-    sup.hasName("Writer") or
-    sup.hasName("OutputStream")
+  exists(RefType sup | sup = t.getAnAncestor() |
+    sup.hasQualifiedName("java.io", ["Writer", "OutputStream"])
   )
 }
 
 predicate safeWriterType(RefType t) {
-  exists(RefType sup | sup = t.getASupertype*() |
-    sup.hasName("StringWriter") or
-    sup.hasName("ByteArrayOutputStream")
+  exists(RefType sup | sup = t.getAnAncestor() |
+    sup.hasQualifiedName("java.io", ["CharArrayWriter", "StringWriter", "ByteArrayOutputStream"])
   )
 }
 
 from ClassInstanceExpr cie, RefType t
 where
+  cie.getFile().isJavaSourceFile() and
   badCloseableInit(cie) and
   cie.getType() = t and
   writerType(t) and

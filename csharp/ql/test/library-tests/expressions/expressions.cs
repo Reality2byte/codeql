@@ -128,8 +128,8 @@ namespace Expressions
 
         class Nested : Class
         {
-
-
+            static Nested() { }
+            Nested(bool b) { }
             Nested(int i) : base(i + 1) { }
 
             void OtherAccesses()
@@ -432,6 +432,18 @@ namespace Expressions
         delegate int S(int x, int y);
         delegate void Unit();
 
+        void MultiDimensionalArrayCreations()
+        {
+            object o = new int[,] { { 1, 2 }, { 3, 4 }, { 5, 6 } };
+            o = new int[,,] { { { 1, 2, 3 }, { 4, 5, 6 } }, { { 7, 8, 9 }, { 10, 11, 12 } } };
+            o = new int[,][,]
+            {
+                { new int[,] { {1,3}, {5,7} }, new int[,] { {0,2}, {4,6}, {8,10} }, new int[,] { {11,22}, {99,88}, {0,9} } },
+                { new int[,] { {1,3}, {5,7} }, new int[,] { {0,2}, {4,6}, {8,10} }, new int[,] { {11,22}, {99,88}, {0,9} } }
+            };
+            o = new int[][,] { new int[,] { { 1, 2 } }, new int[,] { { 1, 2, 3 }, { 1, 2, 3 }, { 1, 2, 3 }, { 1, 2, 3 } } };
+        }
+
         void MainAnonymousFunctions()
         {
             Func<Int16, Byte> f1 = x => (byte)(x + 1); // Implicitly typed, expression body
@@ -483,5 +495,16 @@ namespace Expressions
     {
         const int d = 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 +
                       1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1;
+    }
+
+    class TupleExprs
+    {
+        void Test()
+        {
+            var a = default((int, string));
+            var b = default((bool, int[], object));
+            var x = typeof((int, string));
+            var y = typeof((bool, int[], dynamic));
+        }
     }
 }

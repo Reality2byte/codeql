@@ -32,7 +32,7 @@ predicate important(Method m) {
 /** Holds if the return type of `m` is an instantiated type parameter from `m`. */
 predicate methodHasGenericReturnType(ConstructedMethod cm) {
   exists(UnboundGenericMethod ugm |
-    ugm = cm.getSourceDeclaration() and
+    ugm = cm.getUnboundGeneric() and
     ugm.getReturnType() = ugm.getATypeParameter()
   )
 }
@@ -46,14 +46,16 @@ predicate dubious(Method m, int percentage) {
   // Suppress on methods designed for chaining
   not designedForChaining(m) and
   exists(int used, int total, Method target |
-    target = m.getSourceDeclaration() and
-    used = count(MethodCall mc |
-        mc.getTarget().getSourceDeclaration() = target and
+    target = m.getUnboundDeclaration() and
+    used =
+      count(MethodCall mc |
+        mc.getTarget().getUnboundDeclaration() = target and
         not mc instanceof DiscardedMethodCall and
         (methodHasGenericReturnType(m) implies m.getReturnType() = mc.getTarget().getReturnType())
       ) and
-    total = count(MethodCall mc |
-        mc.getTarget().getSourceDeclaration() = target and
+    total =
+      count(MethodCall mc |
+        mc.getTarget().getUnboundDeclaration() = target and
         (methodHasGenericReturnType(m) implies m.getReturnType() = mc.getTarget().getReturnType())
       ) and
     used != total and
@@ -64,7 +66,8 @@ predicate dubious(Method m, int percentage) {
 }
 
 int chainedUses(Method m) {
-  result = count(MethodCall mc, MethodCall qual |
+  result =
+    count(MethodCall mc, MethodCall qual |
       m = mc.getTarget() and
       hasQualifierAndTarget(mc, qual, qual.getTarget())
     )
@@ -100,11 +103,11 @@ class DiscardedMethodCall extends MethodCall {
 
   string query() {
     exists(Method m |
-      m = getTarget() and
+      m = this.getTarget() and
       not whitelist(m) and
       // Do not alert on "void wrapper methods", i.e., methods that are inserted
       // to deliberately ignore the returned value
-      not getEnclosingCallable().getStatementBody().getNumberOfStmts() = 1
+      not this.getEnclosingCallable().getStatementBody().getNumberOfStmts() = 1
     |
       important(m) and result = "should always be checked"
       or

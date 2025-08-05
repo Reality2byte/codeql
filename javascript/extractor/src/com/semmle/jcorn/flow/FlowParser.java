@@ -541,7 +541,11 @@ public class FlowParser extends ESNextParser {
         if (isStatic && this.type == TokenType.colon) {
           this.parseIdent(false);
         } else if (allowSpread && this.eat(TokenType.ellipsis)) {
-          flowParseType();
+          boolean hasType =
+              this.type != endDelim && this.type != TokenType.comma && this.type != TokenType.semi;
+          if (hasType) {
+            flowParseType();
+          }
           flowObjectTypeSemicolon();
           continue;
         } else {
@@ -826,7 +830,7 @@ public class FlowParser extends ESNextParser {
 
   /** Should Flow syntax be allowed? */
   private boolean flow() {
-    return options.esnext();
+    return options.allowFlowTypes();
   }
 
   @Override
@@ -939,10 +943,12 @@ public class FlowParser extends ESNextParser {
           // `export type { foo, bar };`
           List<ExportSpecifier> specifiers = this.parseExportSpecifiers(exports);
           this.parseExportFrom(specifiers, null, false);
+          this.parseImportOrExportAttributesAndSemicolon();
           return null;
         } else if (this.eat(TokenType.star)) {
           if (this.eatContextual("as")) this.parseIdent(true);
           this.parseExportFrom(null, null, true);
+          this.parseImportOrExportAttributesAndSemicolon();
           return null;
         } else {
           // `export type Foo = Bar;`

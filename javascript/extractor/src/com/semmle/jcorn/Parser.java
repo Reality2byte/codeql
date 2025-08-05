@@ -3,6 +3,19 @@ package com.semmle.jcorn;
 import static com.semmle.jcorn.Whitespace.isNewLine;
 import static com.semmle.jcorn.Whitespace.lineBreak;
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.Stack;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import com.semmle.jcorn.Identifiers.Dialect;
 import com.semmle.jcorn.Options.AllowReserved;
 import com.semmle.js.ast.ArrayExpression;
@@ -39,6 +52,7 @@ import com.semmle.js.ast.ForOfStatement;
 import com.semmle.js.ast.ForStatement;
 import com.semmle.js.ast.FunctionDeclaration;
 import com.semmle.js.ast.FunctionExpression;
+import com.semmle.js.ast.GeneratedCodeExpr;
 import com.semmle.js.ast.IFunction;
 import com.semmle.js.ast.INode;
 import com.semmle.js.ast.IPattern;
@@ -69,6 +83,7 @@ import com.semmle.js.ast.SequenceExpression;
 import com.semmle.js.ast.SourceLocation;
 import com.semmle.js.ast.SpreadElement;
 import com.semmle.js.ast.Statement;
+import com.semmle.js.ast.StaticInitializer;
 import com.semmle.js.ast.Super;
 import com.semmle.js.ast.SwitchCase;
 import com.semmle.js.ast.SwitchStatement;
@@ -93,18 +108,6 @@ import com.semmle.util.data.StringUtil;
 import com.semmle.util.exception.CatastrophicError;
 import com.semmle.util.exception.Exceptions;
 import com.semmle.util.io.WholeIO;
-import java.io.File;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.Stack;
-import java.util.function.Function;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Java port of Acorn.
@@ -124,6 +127,7 @@ public class Parser {
   private boolean inModule;
   protected boolean inFunction;
   protected boolean inGenerator;
+  protected boolean inClass;
   protected boolean inAsync;
   protected boolean inTemplateElement;
   protected int pos;
@@ -141,6 +145,11 @@ public class Parser {
   protected int potentialArrowAt;
   private Stack<LabelInfo> labels;
   protected int yieldPos, awaitPos;
+
+  /**
+   * Set to true by {@link ESNextParser#readInt} if the parsed integer contains an underscore.
+   */
+  protected boolean seenUnderscoreNumericSeparator = false;
 
   /**
    * For readability purposes, we pass this instead of false as the argument to the
@@ -240,8 +249,8 @@ public class Parser {
     // Used to signify the start of a potential arrow function
     this.potentialArrowAt = -1;
 
-    // Flags to track whether we are in a function, a generator, an async function.
-    this.inFunction = this.inGenerator = this.inAsync = false;
+    // Flags to track whether we are in a function, a generator, an async function, a class.
+    this.inFunction = this.inGenerator = this.inAsync = this.inClass = false;
     // Positions to delayed-check that yield/await does not exist in default parameters.
     this.yieldPos = this.awaitPos = 0;
     // Labels in scope.
@@ -523,9 +532,14 @@ public class Parser {
     int next2 = charAt(this.pos + 2);
     if (this.options.esnext()) {
       if (next == '.' && !('0' <= next2 && next2 <= '9')) // '?.', but not '?.X' where X is a digit
-      return this.finishOp(TokenType.questiondot, 2);
-      if (next == '?') // '??'
-      return this.finishOp(TokenType.questionquestion, 2);
+        return this.finishOp(TokenType.questiondot, 2);
+      if (next == '?') { // '??'
+        if (next2 == '=') { // ??=
+          return this.finishOp(TokenType.assign, 3);
+        }
+        return this.finishOp(TokenType.questionquestion, 2);
+      }
+
     }
     return this.finishOp(TokenType.question, 1);
   }
@@ -558,8 +572,11 @@ public class Parser {
 
   private Token readToken_pipe_amp(int code) { // '|&'
     int next = charAt(this.pos + 1);
-    if (next == code)
+    int next2 = charAt(this.pos + 2);
+    if (next == code) { // && ||
+      if (next2 == 61) return this.finishOp(TokenType.assign, 3); // &&= ||=
       return this.finishOp(code == 124 ? TokenType.logicalOR : TokenType.logicalAND, 2);
+    }
     if (next == 61) return this.finishOp(TokenType.assign, 2);
     return this.finishOp(code == 124 ? TokenType.bitwiseOR : TokenType.bitwiseAND, 1);
   }
@@ -601,6 +618,15 @@ public class Parser {
       this.skipLineComment(4);
       this.skipSpace();
       return this.nextToken();
+    }
+    if (next == '%' && code == '<' && this.options.allowGeneratedCodeExprs()) {
+      // `<%`, the beginning of an EJS-style template tag
+      size = 2;
+      int nextNext = charAt(this.pos + 2);
+      if (nextNext == '=' || nextNext == '-') {
+        ++size;
+      }
+      return this.finishOp(TokenType.generatedCodeDelimiterEJS, size);
     }
     if (next == 61) size = 2;
     return this.finishOp(TokenType.relational, size);
@@ -651,6 +677,9 @@ public class Parser {
       case 58:
         ++this.pos;
         return this.finishToken(TokenType.colon);
+      case 35:
+        ++this.pos;
+        return this.finishToken(TokenType.pound);
       case 63:
         return this.readToken_question();
 
@@ -698,8 +727,8 @@ public class Parser {
       case 42: // '%*'
         return this.readToken_mult_modulo_exp(code);
 
-      case 124:
-      case 38: // '|&'
+      case 124: // '|'
+      case 38: // '&'
         return this.readToken_pipe_amp(code);
 
       case 94: // '^'
@@ -841,6 +870,10 @@ public class Parser {
     }
 
     String str = inputSubstring(start, this.pos);
+    if (seenUnderscoreNumericSeparator) {
+      str = str.replace("_", "");
+      seenUnderscoreNumericSeparator = false;
+    }
     Number val = null;
     if (isFloat) val = parseFloat(str);
     else if (!octal || str.length() == 1) val = parseInt(str, 10);
@@ -1439,7 +1472,7 @@ public class Parser {
     return left;
   }
 
-  private Expression buildBinary(
+  protected Expression buildBinary(
       int startPos,
       Position startLoc,
       Expression left,
@@ -1460,7 +1493,7 @@ public class Parser {
     int startPos = this.start;
     Position startLoc = this.startLoc;
     Expression expr;
-    if (this.inAsync && this.isContextual("await")) {
+    if ((this.inAsync || options.esnext() && !this.inFunction) && this.isContextual("await")) {
       expr = this.parseAwait();
       sawUnary = true;
     } else if (this.type.isPrefix) {
@@ -1520,10 +1553,6 @@ public class Parser {
     }
   }
 
-  protected boolean isOnOptionalChain(boolean optional, Expression base) {
-    return optional || base instanceof Chainable && ((Chainable) base).isOnOptionalChain();
-  }
-
   /**
    * Parse a single subscript {@code s}; if more subscripts could follow, return {@code Pair.make(s,
    * true}, otherwise return {@code Pair.make(s, false)}.
@@ -1544,7 +1573,7 @@ public class Parser {
               this.parseExpression(false, null),
               true,
               optional,
-              isOnOptionalChain(optional, base));
+              Chainable.isOnOptionalChain(optional, base));
       this.expect(TokenType.bracketR);
       return Pair.make(this.finishNode(node), true);
     } else if (!noCalls && this.eat(TokenType.parenL)) {
@@ -1572,10 +1601,10 @@ public class Parser {
               new ArrayList<>(),
               exprList,
               optional,
-              isOnOptionalChain(optional, base));
+              Chainable.isOnOptionalChain(optional, base));
       return Pair.make(this.finishNode(node), true);
     } else if (this.type == TokenType.backQuote) {
-      if (isOnOptionalChain(optional, base)) {
+      if (Chainable.isOnOptionalChain(optional, base)) {
         this.raise(base, "An optional chain may not be used in a tagged template expression.");
       }
       TaggedTemplateExpression node =
@@ -1590,7 +1619,7 @@ public class Parser {
               this.parseIdent(true),
               false,
               optional,
-              isOnOptionalChain(optional, base));
+              Chainable.isOnOptionalChain(optional, base));
       return Pair.make(this.finishNode(node), true);
     } else {
       return Pair.make(base, false);
@@ -1617,6 +1646,15 @@ public class Parser {
       node = new ThisExpression(new SourceLocation(this.startLoc));
       this.next();
       return this.finishNode(node);
+    } else if (this.type == TokenType.pound) {
+      Position startLoc = this.startLoc;
+      // there is only one case where this is valid, and that is "Ergonomic brand checks for Private Fields", i.e. `#name in obj`.
+      Identifier id = parseIdent(true);
+      String op = String.valueOf(this.value);
+      if (!op.equals("in")) {
+        this.unexpected(startLoc);
+      }
+      return this.parseExprOp(id, this.start, startLoc, -1, false);
     } else if (this.type == TokenType.name) {
       Position startLoc = this.startLoc;
       Identifier id = this.parseIdent(this.type != TokenType.name);
@@ -1670,6 +1708,9 @@ public class Parser {
       return this.parseNew();
     } else if (this.type == TokenType.backQuote) {
       return this.parseTemplate(false);
+    } else if (this.type == TokenType.generatedCodeDelimiterEJS) {
+      String openingDelimiter = (String) this.value;
+      return this.parseGeneratedCodeExpr(this.startLoc, openingDelimiter, "%>");
     } else {
       this.unexpected();
       return null;
@@ -1832,7 +1873,7 @@ public class Parser {
     Expression callee =
         this.parseSubscripts(this.parseExprAtom(null), innerStartPos, innerStartLoc, true);
 
-    if (isOnOptionalChain(false, callee))
+    if (Chainable.isOnOptionalChain(false, callee))
       this.raise(callee, "An optional chain may not be used in a `new` expression.");
 
     return parseNewArguments(startLoc, callee);
@@ -1911,10 +1952,16 @@ public class Parser {
   // Parse an object literal or binding pattern.
   protected Expression parseObj(boolean isPattern, DestructuringErrors refDestructuringErrors) {
     Position startLoc = this.startLoc;
+    if (!isPattern && options.allowGeneratedCodeExprs() && charAt(pos) == '{') {
+      // Parse mustache-style placeholder expression: {{ ... }} or {{{ ... }}}
+      return charAt(pos + 1) == '{'
+          ? parseGeneratedCodeExpr(startLoc, "{{{", "}}}")
+          : parseGeneratedCodeExpr(startLoc, "{{", "}}");
+    }
     boolean first = true;
     Map<String, PropInfo> propHash = new LinkedHashMap<>();
     List<Property> properties = new ArrayList<Property>();
-    this.next();
+    this.next(); // skip '{'
     while (!this.eat(TokenType.braceR)) {
       if (!first) {
         this.expect(TokenType.comma);
@@ -1931,6 +1978,42 @@ public class Parser {
     return this.finishNode(node);
   }
 
+  /** Emit a token ranging from the current position until <code>endOfToken</code>. */
+  private Token generateTokenEndingAt(int endOfToken, TokenType tokenType) {
+    this.lastTokEnd = this.end;
+    this.lastTokStart = this.start;
+    this.lastTokEndLoc = this.endLoc;
+    this.lastTokStartLoc = this.startLoc;
+    this.start = this.pos;
+    this.startLoc = this.curPosition();
+    this.pos = endOfToken;
+    return finishToken(tokenType);
+  }
+
+  /** Parse a generated expression. The current token refers to the opening delimiter. */
+  protected Expression parseGeneratedCodeExpr(Position startLoc, String openingDelimiter, String closingDelimiter) {
+    // Emit a token for what's left of the opening delimiter, if there are any remaining characters
+    int startOfBody = startLoc.getOffset() + openingDelimiter.length();
+    if (this.pos != startOfBody) {
+      this.generateTokenEndingAt(startOfBody, TokenType.generatedCodeDelimiter);
+    }
+
+    // Emit a token for the generated code body
+    int endOfBody = this.input.indexOf(closingDelimiter, startOfBody);
+    if (endOfBody == -1) {
+    	this.unexpected(startLoc);
+    }
+    Token bodyToken = this.generateTokenEndingAt(endOfBody, TokenType.generatedCodeExpr);
+
+    // Emit a token for the closing delimiter
+    this.generateTokenEndingAt(endOfBody + closingDelimiter.length(), TokenType.generatedCodeDelimiter);
+
+    this.next(); // produce lookahead token
+
+    return finishNode(new GeneratedCodeExpr(new SourceLocation(startLoc), openingDelimiter, closingDelimiter,
+        bodyToken.getValue()));
+  }
+
   protected Property parseProperty(
       boolean isPattern,
       DestructuringErrors refDestructuringErrors,
@@ -1944,6 +2027,7 @@ public class Parser {
     this.parsePropertyName(pi);
     if (!isPattern && this.options.ecmaVersion() >= 8 && !isGenerator && this.isAsyncProp(pi)) {
       pi.isAsync = true;
+      pi.isGenerator = this.eat(TokenType.star);
       this.parsePropertyName(pi);
     } else {
       pi.isAsync = false;
@@ -1964,6 +2048,7 @@ public class Parser {
             || this.type == TokenType.num
             || this.type == TokenType.string
             || this.type == TokenType.bracketL
+            || this.type == TokenType.star
             || this.type.keyword != null)
         && !this.canInsertSemicolon();
   }
@@ -1984,6 +2069,7 @@ public class Parser {
       pi.value = this.parseMethod(pi.isGenerator, pi.isAsync);
     } else if (this.options.ecmaVersion() >= 5
         && !pi.computed
+        && !pi.isPattern
         && pi.key instanceof Identifier
         && (((Identifier) pi.key).getName().equals("get")
             || ((Identifier) pi.key).getName().equals("set"))
@@ -2193,6 +2279,7 @@ public class Parser {
   // identifiers.
   protected Identifier parseIdent(boolean liberal) {
     Position startLoc = this.startLoc;
+    boolean isPrivateField = liberal && this.eat(TokenType.pound);
     if (liberal && this.options.allowReserved() == AllowReserved.NEVER) liberal = false;
     String name = null;
     if (this.type == TokenType.name) {
@@ -2201,9 +2288,9 @@ public class Parser {
           && (this.options.ecmaVersion() >= 6
               || inputSubstring(this.start, this.end).indexOf("\\") == -1))
         this.raiseRecoverable(this.start, "The keyword '" + this.value + "' is reserved");
-      if (this.inGenerator && this.value.equals("yield"))
+      if (!isPrivateField && this.inGenerator && this.value.equals("yield"))
         this.raiseRecoverable(this.start, "Can not use 'yield' as identifier inside a generator");
-      if (this.inAsync && this.value.equals("await"))
+      if (!isPrivateField && this.inAsync && this.value.equals("await"))
         this.raiseRecoverable(
             this.start, "Can not use 'await' as identifier inside an async function");
       name = String.valueOf(this.value);
@@ -2215,6 +2302,12 @@ public class Parser {
       this.unexpected();
     }
     this.next();
+    if (isPrivateField) {
+      if (!this.inClass) {
+        this.raiseRecoverable(this.start, "Cannot use private fields outside a class");
+      }
+      name = "#" + name;
+    }
     Identifier node = new Identifier(new SourceLocation(startLoc), name);
     return this.finishNode(node);
   }
@@ -2312,7 +2405,7 @@ public class Parser {
       }
 
       if (node instanceof MemberExpression) {
-        if (isOnOptionalChain(false, (MemberExpression) node))
+        if (Chainable.isOnOptionalChain(false, (MemberExpression) node))
           this.raise(node, "Invalid left-hand side in assignment");
         if (!isBinding) return node;
       }
@@ -2581,17 +2674,43 @@ public class Parser {
   // - 'async /*foo*/ function' is OK.
   // - 'async /*\n*/ function' is invalid.
   boolean isAsyncFunction() {
+    return isAsyncKeyword("async", "function");
+  }
+
+  boolean isAwaitUsing() {
+    return isAsyncKeyword("await", "using");
+  }
+
+  // check 'pre [no LineTerminator here] keyword'
+  // e.g. `await using" or `async function`.
+  // is only used for async/await parsing, so it requires ecmaVersion >= 8.
+  boolean isAsyncKeyword(String pre, String keyword) {
     if (this.type != TokenType.name
         || this.options.ecmaVersion() < 8
-        || !this.value.equals("async")) return false;
+        || !this.value.equals(pre)) return false;
 
     Matcher m = Whitespace.skipWhiteSpace.matcher(this.input);
     m.find(this.pos);
     int next = m.end();
+    int len = keyword.length();
     return !Whitespace.lineBreakG.matcher(inputSubstring(this.pos, next)).matches()
-        && inputSubstring(next, next + 8).equals("function")
-        && (next + 8 == this.input.length()
-            || !Identifiers.isIdentifierChar(this.input.codePointAt(next + 8), false));
+        && inputSubstring(next, next + len).equals(keyword)
+        && (next + len == this.input.length()
+            || !Identifiers.isIdentifierChar(this.input.codePointAt(next + len), false));
+  }
+
+  // matches "using [identifier]"
+  boolean isUsingDecl() {
+    if (this.type != TokenType.name
+        || this.options.ecmaVersion() < 8
+        || !this.value.equals("using")) return false;
+
+    Matcher m = Whitespace.skipWhiteSpace.matcher(this.input);
+    m.find(this.pos);
+    int next = m.end();
+    return this.input.length() > next &&
+        !Whitespace.lineBreakG.matcher(inputSubstring(this.pos, next)).matches()
+        && Identifiers.isIdentifierChar(this.input.codePointAt(next), false);
   }
 
   /**
@@ -2644,7 +2763,7 @@ public class Parser {
       return this.parseThrowStatement(startLoc);
     } else if (starttype == TokenType._try) {
       return this.parseTryStatement(startLoc);
-    } else if (starttype == TokenType._const || starttype == TokenType._var) {
+    } else if (starttype == TokenType._const || starttype == TokenType._var || this.isUsingDecl()) {
       if (kind == null) kind = String.valueOf(this.value);
       if (!declaration && !kind.equals("var")) this.unexpected();
       return this.parseVarStatement(startLoc, kind);
@@ -2668,6 +2787,10 @@ public class Parser {
           : this.parseExport(startLoc, exports);
 
     } else {
+      if (this.isAwaitUsing() && (this.inAsync || options.esnext() && !this.inFunction)) {
+        this.next();
+        return this.parseVarStatement(startLoc, "using");
+      }
       if (this.isAsyncFunction() && declaration) {
         this.next();
         return this.parseFunctionStatement(startLoc, true);
@@ -2691,7 +2814,7 @@ public class Parser {
     boolean isBreak = keyword.equals("break");
     this.next();
     Identifier label = null;
-    if (this.eat(TokenType.semi) || this.insertSemicolon()) {
+    if (this.eagerlyTrySemicolon()) {
       label = null;
     } else if (this.type != TokenType.name) {
       this.unexpected();
@@ -2747,7 +2870,10 @@ public class Parser {
     this.expect(TokenType.parenL);
     if (this.type == TokenType.semi) return this.parseFor(startLoc, null);
     boolean isLet = this.isLet();
-    if (this.type == TokenType._var || this.type == TokenType._const || isLet) {
+    if (this.isAwaitUsing() && this.inAsync) {
+      this.next(); // just skip the await and treat it as a `using` statement
+    }
+    if (this.type == TokenType._var || this.type == TokenType._const || isLet || (this.type == TokenType.name && this.value.equals("using"))) {
       Position initStartLoc = this.startLoc;
       String kind = isLet ? "let" : String.valueOf(this.value);
       this.next();
@@ -2801,6 +2927,15 @@ public class Parser {
         new IfStatement(new SourceLocation(startLoc), test, consequent, alternate));
   }
 
+  /**
+   * Consumes or inserts a semicolon if possible, and returns true if a semicolon was consumed or inserted.
+   *
+   * Returns false if there was no semicolon and insertion was not possible.
+   */
+  protected boolean eagerlyTrySemicolon() {
+    return this.eat(TokenType.semi) || this.insertSemicolon();
+  }
+
   protected ReturnStatement parseReturnStatement(Position startLoc) {
     if (!this.inFunction && !this.options.allowReturnOutsideFunction())
       this.raise(this.start, "'return' outside of function");
@@ -2810,7 +2945,7 @@ public class Parser {
     // optional arguments, we eagerly look for a semicolon or the
     // possibility to insert one.
     Expression argument;
-    if (this.eat(TokenType.semi) || this.insertSemicolon()) {
+    if (this.eagerlyTrySemicolon()) {
       argument = null;
     } else {
       argument = this.parseExpression(false, null);
@@ -3020,7 +3155,7 @@ public class Parser {
       Expression init = null;
       if (this.eat(TokenType.eq)) {
         init = this.parseMaybeAssign(isFor, null, null);
-      } else if (kind.equals("const")
+      } else if ((kind.equals("const") || kind.equals("using"))
           && !(this.type == TokenType._in
               || (this.options.ecmaVersion() >= 6 && this.isContextual("of")))) {
         this.raiseRecoverable(
@@ -3129,6 +3264,8 @@ public class Parser {
   // Parse a class declaration or literal (depending on the
   // `isStatement` parameter).
   protected Node parseClass(Position startLoc, boolean isStatement) {
+    boolean oldInClass = this.inClass;
+    this.inClass = true;
     SourceLocation loc = new SourceLocation(startLoc);
     this.next();
     Identifier id = this.parseClassId(isStatement);
@@ -3147,6 +3284,8 @@ public class Parser {
     Node node;
     if (isStatement) node = new ClassDeclaration(loc, id, superClass, classBody);
     else node = new ClassExpression(loc, id, superClass, classBody);
+
+    this.inClass = oldInClass;
     return this.finishNode(node);
   }
 
@@ -3158,6 +3297,10 @@ public class Parser {
     PropertyInfo pi = new PropertyInfo(false, isGenerator, methodStartLoc);
     this.parsePropertyName(pi);
     boolean isStatic = isMaybeStatic && this.type != TokenType.parenL;
+    if (isStatic && this.type == TokenType.braceL) {
+      BlockStatement block = parseBlock(false);
+      return new StaticInitializer(block.getLoc(), block);
+    }
     if (isStatic) {
       if (isGenerator) this.unexpected();
       isGenerator = this.eat(TokenType.star);
@@ -3166,6 +3309,7 @@ public class Parser {
     }
     if (this.options.ecmaVersion() >= 8 && !isGenerator && this.isAsyncProp(pi)) {
       pi.isAsync = true;
+      pi.isGenerator = this.eat(TokenType.star);
       this.parsePropertyName(pi);
     }
     return parseClassPropertyBody(pi, hadConstructor, isStatic);
@@ -3303,6 +3447,7 @@ public class Parser {
     Statement declaration;
     List<ExportSpecifier> specifiers;
     Expression source = null;
+    Expression attributes = null;
     if (this.shouldParseExportStatement()) {
       declaration = this.parseStatement(true, false);
       if (declaration == null) return null;
@@ -3318,11 +3463,13 @@ public class Parser {
       declaration = null;
       specifiers = this.parseExportSpecifiers(exports);
       source = parseExportFrom(specifiers, source, false);
+      attributes = parseImportOrExportAttributesAndSemicolon();
     }
     return this.finishNode(
-        new ExportNamedDeclaration(loc, declaration, specifiers, (Literal) source));
+        new ExportNamedDeclaration(loc, declaration, specifiers, (Literal) source, attributes));
   }
 
+  /** Parses the 'from' clause of an export, not including the assertion or semicolon. */
   protected Expression parseExportFrom(
       List<ExportSpecifier> specifiers, Expression source, boolean expectFrom) {
     if (this.eatContextual("from")) {
@@ -3341,14 +3488,14 @@ public class Parser {
 
       source = null;
     }
-    this.semicolon();
     return source;
   }
 
   protected ExportDeclaration parseExportAll(
       SourceLocation loc, Position starLoc, Set<String> exports) {
     Expression source = parseExportFrom(null, null, true);
-    return this.finishNode(new ExportAllDeclaration(loc, (Literal) source));
+    Expression attributes = parseImportOrExportAttributesAndSemicolon();
+    return this.finishNode(new ExportAllDeclaration(loc, (Literal) source, attributes));
   }
 
   private void checkExport(Set<String> exports, String name, Position pos) {
@@ -3413,6 +3560,18 @@ public class Parser {
     return parseImportRest(loc);
   }
 
+  protected Expression parseImportOrExportAttributesAndSemicolon() {
+    Expression result = null;
+    if (!this.eagerlyTrySemicolon()) {
+      if (!this.eatContextual("assert")) {
+        this.expect(TokenType._with);
+      }
+      result = this.parseObj(false, null);
+      this.semicolon();
+    }
+    return result;
+  }
+
   protected ImportDeclaration parseImportRest(SourceLocation loc) {
     List<ImportSpecifier> specifiers;
     Literal source;
@@ -3426,9 +3585,9 @@ public class Parser {
       if (this.type != TokenType.string) this.unexpected();
       source = (Literal) this.parseExprAtom(null);
     }
-    this.semicolon();
+    Expression attributes = this.parseImportOrExportAttributesAndSemicolon();
     if (specifiers == null) return null;
-    return this.finishNode(new ImportDeclaration(loc, specifiers, source));
+    return this.finishNode(new ImportDeclaration(loc, specifiers, source, attributes));
   }
 
   // Parses a comma-separated list of module imports.

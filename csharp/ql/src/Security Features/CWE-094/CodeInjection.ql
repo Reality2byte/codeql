@@ -4,6 +4,7 @@
  *              malicious code.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.3
  * @precision high
  * @id cs/code-injection
  * @tags security
@@ -13,10 +14,10 @@
  */
 
 import csharp
-import semmle.code.csharp.security.dataflow.CodeInjection::CodeInjection
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.CodeInjectionQuery
+import CodeInjection::PathGraph
 
-from TaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "$@ flows to here and is compiled as code.", source.getNode(),
-  "User-provided value"
+from CodeInjection::PathNode source, CodeInjection::PathNode sink
+where CodeInjection::flowPath(source, sink)
+select sink.getNode(), source, sink, "This code compilation depends on a $@.", source.getNode(),
+  "user-provided value"

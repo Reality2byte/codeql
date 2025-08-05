@@ -1,12 +1,9 @@
-
 import python
 private import semmle.python.objects.ObjectInternal
 
-/** Make unknown type visible */
+/** An unknown type. Not usually visible. */
 class UnknownType extends UnknownClassInternal {
-
-    override string toString() { result = "*UNKNOWN TYPE" }
-
+  override string toString() { result = "*UNKNOWN TYPE" }
 }
 
 from ClassObject cls

@@ -3,6 +3,7 @@
  * @description Using alloca in a loop can lead to a stack overflow
  * @kind problem
  * @problem.severity warning
+ * @security-severity 7.5
  * @precision high
  * @id cpp/alloca-in-loop
  * @tags reliability
@@ -13,7 +14,7 @@
 
 import cpp
 import semmle.code.cpp.rangeanalysis.RangeAnalysisUtils
-import semmle.code.cpp.dataflow.DataFlow
+import semmle.code.cpp.ir.dataflow.DataFlow
 
 /** Gets a loop that contains `e`. */
 Loop getAnEnclosingLoopOfExpr(Expr e) { result = getAnEnclosingLoopOfStmt(e.getEnclosingStmt()) }
@@ -56,7 +57,7 @@ class LoopWithAlloca extends Stmt {
     or
     // `e == 0`
     exists(EQExpr eq |
-      conditionRequires(eq, truth.booleanNot()) and
+      this.conditionRequires(eq, truth.booleanNot()) and
       eq.getAnOperand().getValue().toInt() = 0 and
       e = eq.getAnOperand() and
       not exists(e.getValue())
@@ -64,7 +65,7 @@ class LoopWithAlloca extends Stmt {
     or
     // `e != 0`
     exists(NEExpr eq |
-      conditionRequires(eq, truth) and
+      this.conditionRequires(eq, truth) and
       eq.getAnOperand().getValue().toInt() = 0 and
       e = eq.getAnOperand() and
       not exists(e.getValue())
@@ -72,7 +73,7 @@ class LoopWithAlloca extends Stmt {
     or
     // `(bool)e == true`
     exists(EQExpr eq |
-      conditionRequires(eq, truth) and
+      this.conditionRequires(eq, truth) and
       eq.getAnOperand().getValue().toInt() = 1 and
       e = eq.getAnOperand() and
       e.getUnspecifiedType() instanceof BoolType and
@@ -81,7 +82,7 @@ class LoopWithAlloca extends Stmt {
     or
     // `(bool)e != true`
     exists(NEExpr eq |
-      conditionRequires(eq, truth.booleanNot()) and
+      this.conditionRequires(eq, truth.booleanNot()) and
       eq.getAnOperand().getValue().toInt() = 1 and
       e = eq.getAnOperand() and
       e.getUnspecifiedType() instanceof BoolType and
@@ -89,7 +90,7 @@ class LoopWithAlloca extends Stmt {
     )
     or
     exists(NotExpr notExpr |
-      conditionRequires(notExpr, truth.booleanNot()) and
+      this.conditionRequires(notExpr, truth.booleanNot()) and
       e = notExpr.getOperand()
     )
     or
@@ -97,7 +98,7 @@ class LoopWithAlloca extends Stmt {
     // requires both of its operand to be true as well.
     exists(LogicalAndExpr andExpr |
       truth = true and
-      conditionRequires(andExpr, truth) and
+      this.conditionRequires(andExpr, truth) and
       e = andExpr.getAnOperand()
     )
     or
@@ -105,7 +106,7 @@ class LoopWithAlloca extends Stmt {
     // it requires both of its operand to be false as well.
     exists(LogicalOrExpr orExpr |
       truth = false and
-      conditionRequires(orExpr, truth) and
+      this.conditionRequires(orExpr, truth) and
       e = orExpr.getAnOperand()
     )
   }
@@ -140,9 +141,9 @@ class LoopWithAlloca extends Stmt {
    * `conditionRequiresInequality`.
    */
   private Variable getAControllingVariable() {
-    conditionRequires(result.getAnAccess(), _)
+    this.conditionRequires(result.getAnAccess(), _)
     or
-    conditionRequiresInequality(result.getAnAccess(), _, _)
+    this.conditionRequiresInequality(result.getAnAccess(), _, _)
   }
 
   /**
@@ -185,6 +186,19 @@ class LoopWithAlloca extends Stmt {
   }
 
   /**
+   * Gets an expression associated with a dataflow node.
+   */
+  private Expr getExpr(DataFlow::Node node) {
+    result = node.asInstruction().getAst()
+    or
+    result = node.asOperand().getUse().getAst()
+    or
+    result = node.(DataFlow::RawIndirectInstruction).getInstruction().getAst()
+    or
+    result = node.(DataFlow::RawIndirectOperand).getOperand().getUse().getAst()
+  }
+
+  /**
    * Gets a definition that may be the most recent definition of the
    * controlling variable `var` before this loop.
    */
@@ -193,14 +207,10 @@ class LoopWithAlloca extends Stmt {
       va = var.getAnAccess() and
       this.conditionRequiresInequality(va, _, _) and
       DataFlow::localFlow(result, DataFlow::exprNode(va)) and
+      // Phi nodes will be preceded by nodes that represent actual definitions
+      not result instanceof DataFlow::SsaPhiNode and
       // A source is outside the loop if it's not inside the loop
-      not exists(Expr e |
-        e = result.asExpr()
-        or
-        e = result.asDefiningArgument()
-      |
-        this = getAnEnclosingLoopOfExpr(e)
-      )
+      not exists(Expr e | e = this.getExpr(result) | this = getAnEnclosingLoopOfExpr(e))
     )
   }
 
@@ -210,7 +220,11 @@ class LoopWithAlloca extends Stmt {
    */
   private int getAControllingVarInitialValue(Variable var, DataFlow::Node source) {
     source = this.getAPrecedingDef(var) and
-    result = source.asExpr().getValue().toInt()
+    (
+      result = this.getExpr(source).getValue().toInt()
+      or
+      result = this.getExpr(source).(Assignment).getRValue().getValue().toInt()
+    )
   }
 
   /**
@@ -328,5 +342,4 @@ where
   not l.isTightlyBounded() and
   alloc = l.getAnAllocaCall() and
   alloc.getASuccessor*() = l.(Loop).getStmt()
-select alloc, "Stack allocation is inside a $@ loop.", l,
-  l.toString()
+select alloc, "Stack allocation is inside a $@ loop.", l, l.toString()

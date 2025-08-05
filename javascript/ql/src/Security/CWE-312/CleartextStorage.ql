@@ -4,6 +4,7 @@
  *              attacker.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 7.5
  * @precision high
  * @id js/clear-text-storage-of-sensitive-data
  * @tags security
@@ -13,10 +14,10 @@
  */
 
 import javascript
-import semmle.javascript.security.dataflow.CleartextStorage::CleartextStorage
+import semmle.javascript.security.dataflow.CleartextStorageQuery
 import DataFlow::PathGraph
 
 from Configuration cfg, DataFlow::PathNode source, DataFlow::PathNode sink
 where cfg.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "Sensitive data returned by $@ is stored here.",
+select sink.getNode(), source, sink, "This stores sensitive data returned by $@ as clear text.",
   source.getNode(), source.getNode().(Source).describe()

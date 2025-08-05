@@ -1,13 +1,13 @@
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Semmle.Extraction.Kinds;
 using System.IO;
 using System.Linq;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Semmle.Extraction.Kinds;
 
 namespace Semmle.Extraction.CSharp.Entities.Statements
 {
-    class Block : Statement<BlockSyntax>
+    internal class Block : Statement<BlockSyntax>
     {
-        Block(Context cx, BlockSyntax block, IStatementParentEntity parent, int child)
+        private Block(Context cx, BlockSyntax block, IStatementParentEntity parent, int child)
             : base(cx, block, StmtKind.BLOCK, parent, child) { }
 
         public static Block Create(Context cx, BlockSyntax node, IStatementParentEntity parent, int child)
@@ -20,7 +20,7 @@ namespace Semmle.Extraction.CSharp.Entities.Statements
         protected override void PopulateStatement(TextWriter trapFile)
         {
             var child = 0;
-            foreach (var childStmt in Stmt.Statements.Select(c => Statement.Create(cx, c, this, child)))
+            foreach (var childStmt in Stmt.Statements.Select(c => Statement.Create(Context, c, this, child)))
             {
                 child += childStmt.NumberOfStatements;
             }

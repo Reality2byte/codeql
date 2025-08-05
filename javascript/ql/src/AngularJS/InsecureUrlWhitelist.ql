@@ -3,6 +3,7 @@
  * @description URL whitelists that are too permissive can cause security vulnerabilities.
  * @kind problem
  * @problem.severity warning
+ * @security-severity 7.5
  * @precision very-high
  * @id js/angular/insecure-url-whitelist
  * @tags security
@@ -22,7 +23,7 @@ predicate isResourceUrlWhitelist(
 ) {
   exists(AngularJS::ServiceReference service |
     service.getName() = "$sceDelegateProvider" and
-    setupCall.asExpr() = service.getAMethodCall("resourceUrlWhitelist") and
+    setupCall = service.getAMethodCall("resourceUrlWhitelist") and
     list.flowsTo(setupCall.getArgument(0))
   )
 }
@@ -32,7 +33,6 @@ predicate isResourceUrlWhitelist(
  */
 class ResourceUrlWhitelistEntry extends Expr {
   DataFlow::MethodCallNode setupCall;
-
   string pattern;
 
   ResourceUrlWhitelistEntry() {
@@ -78,5 +78,5 @@ from ResourceUrlWhitelistEntry entry, DataFlow::MethodCallNode setupCall, string
 where
   entry.isInsecure(explanation) and
   setupCall = entry.getSetupCall()
-select setupCall, "'$@' is not a secure whitelist entry, because " + explanation + ".", entry,
+select setupCall, "$@ is not a secure whitelist entry, because " + explanation + ".", entry,
   entry.toString()

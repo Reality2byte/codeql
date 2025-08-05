@@ -1,4 +1,4 @@
-
+// semmle-extractor-options: -std=c++11
 class MyValue {
 public:
 	MyValue(int _val) : val(_val) {};
@@ -48,7 +48,7 @@ MyValue g7(bool c)
 	if (c) return MyValue(7);
 	DONOTHING
 	DONOTHING
-	// BAD [the alert here is unfortunately placed]
+	// BAD
 }
 
 typedef void MYVOID;
@@ -163,4 +163,10 @@ int g19(int x)
 	}
 
 	return x; // GOOD
+}
+
+[[noreturn]] void g20();
+
+int g21() {
+    g20(); // GOOD
 }

@@ -4,6 +4,7 @@
  *              allows a malicious attacker to submit a request on behalf of the user.
  * @kind problem
  * @problem.severity error
+ * @security-severity 8.8
  * @precision high
  * @id cs/web/missing-token-validation
  * @tags security
@@ -18,7 +19,7 @@ import semmle.code.csharp.frameworks.system.web.Mvc
 /** An `AuthorizationFilter` that calls the `AntiForgery.Validate` method. */
 class AntiForgeryAuthorizationFilter extends AuthorizationFilter {
   AntiForgeryAuthorizationFilter() {
-    getOnAuthorizationMethod().calls*(any(AntiForgeryClass a).getValidateMethod())
+    this.getOnAuthorizationMethod().calls*(any(AntiForgeryClass a).getValidateMethod())
   }
 }
 

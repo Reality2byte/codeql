@@ -12,7 +12,9 @@
  */
 
 import csharp
-import semmle.code.csharp.dataflow.LibraryTypeDataFlow
+import semmle.code.csharp.dataflow.internal.FlowSummaryImpl as FlowSummaryImpl
+import semmle.code.csharp.dataflow.internal.DataFlowDispatch as DataFlowDispatch
+import semmle.code.csharp.dataflow.internal.DataFlowPrivate as DataFlowPrivate
 import semmle.code.csharp.frameworks.system.Collections
 import semmle.code.csharp.frameworks.system.collections.Generic
 
@@ -35,19 +37,19 @@ predicate inForeachStmtBody(ForeachStmt loop, Element e) {
   )
 }
 
-class LambdaDataFlowConfiguration extends DataFlow::Configuration {
-  LambdaDataFlowConfiguration() { this = "LambdaDataFlowConfiguration" }
+module LambdaDataFlowConfig implements DataFlow::ConfigSig {
+  predicate isSource(DataFlow::Node source) { lambdaCapturesLoopVariable(source.asExpr(), _, _) }
 
-  override predicate isSource(DataFlow::Node source) {
-    lambdaCapturesLoopVariable(source.asExpr(), _, _)
-  }
+  predicate isSink(DataFlow::Node sink) { exists(getAssignmentTarget(sink.asExpr())) }
+}
 
-  override predicate isSink(DataFlow::Node sink) { exists(getAssignmentTarget(sink.asExpr())) }
+module LambdaDataFlow {
+  private import DataFlow::Global<LambdaDataFlowConfig>
 
   predicate capturesLoopVarAndIsStoredIn(
     AnonymousFunctionExpr lambda, Variable loopVar, Element storage
   ) {
-    exists(DataFlow::Node sink | this.hasFlow(DataFlow::exprNode(lambda), sink) |
+    exists(DataFlow::Node sink | flow(DataFlow::exprNode(lambda), sink) |
       storage = getAssignmentTarget(sink.asExpr())
     ) and
     exists(ForeachStmt loop | lambdaCapturesLoopVariable(lambda, loop, loopVar) |
@@ -74,23 +76,18 @@ Element getAssignmentTarget(Expr e) {
 
 Element getCollectionAssignmentTarget(Expr e) {
   // Store into collection via method
-  exists(
-    MethodCall mc, Method m, IEnumerableFlow ief, CallableFlowSourceArg source,
-    CallableFlowSinkQualifier sink, int i
-  |
-    mc.getQualifier() = result.(Variable).getAnAccess() and
-    ief = mc.getQualifier().getType().getSourceDeclaration() and
-    m = mc.getTarget().getSourceDeclaration() and
-    ief.callableFlow(source, sink, m, _) and
-    source.getArgumentIndex() = i and
-    e = mc.getArgument(i)
+  exists(DataFlowPrivate::PostUpdateNode postNode |
+    FlowSummaryImpl::Private::Steps::summarySetterStep(DataFlow::exprNode(e), _, postNode,
+      any(DataFlowDispatch::DataFlowSummarizedCallable sc)) and
+    result.(Variable).getAnAccess() = postNode.getPreUpdateNode().asExpr()
   )
   or
   // Array initializer
   e = result.(ArrayCreation).getInitializer().getAnElement()
   or
   // Collection initializer
-  e = result
+  e =
+    result
         .(ObjectCreation)
         .getInitializer()
         .(CollectionInitializer)
@@ -112,7 +109,7 @@ predicate declaredInsideLoop(ForeachStmt loop, LocalVariable v) {
   )
 }
 
-from LambdaDataFlowConfiguration c, AnonymousFunctionExpr lambda, Variable loopVar, Element storage
-where c.capturesLoopVarAndIsStoredIn(lambda, loopVar, storage)
-select lambda, "Function which may be stored in $@ captures variable $@", storage,
+from AnonymousFunctionExpr lambda, Variable loopVar, Element storage
+where LambdaDataFlow::capturesLoopVarAndIsStoredIn(lambda, loopVar, storage)
+select lambda, "Function which may be stored in $@ captures variable $@.", storage,
   storage.toString(), loopVar, loopVar.getName()

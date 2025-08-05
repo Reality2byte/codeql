@@ -7,14 +7,13 @@
  * @treemap.warnOn highValues
  * @metricType file
  * @metricAggregate avg sum max
- * @precision very-high
  * @id cpp/lines-of-code-in-files
  * @tags maintainability
  *       complexity
  */
+
 import cpp
 
 from File f
 where f.fromSource()
-select f, f.getMetrics().getNumberOfLinesOfCode() as n
-order by n desc
+select f, f.getMetrics().getNumberOfLinesOfCode() as n order by n desc

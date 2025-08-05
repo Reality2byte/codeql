@@ -39,8 +39,8 @@ public class Options {
         Position endLoc);
   }
 
-  private boolean allowHashBang, allowReturnOutsideFunction, allowImportExportEverywhere;
-  private boolean preserveParens, mozExtensions, jscript, esnext, v8Extensions, e4x;
+  private boolean allowHashBang, allowReturnOutsideFunction, allowImportExportEverywhere, allowGeneratedCodeExprs;
+  private boolean preserveParens, mozExtensions, jscript, esnext, v8Extensions, e4x, allowFlowTypes;
   private int ecmaVersion;
   private AllowReserved allowReserved;
   private String sourceType;
@@ -58,6 +58,7 @@ public class Options {
     this.allowReserved = AllowReserved.YES;
     this.allowReturnOutsideFunction = false;
     this.allowImportExportEverywhere = false;
+    this.allowGeneratedCodeExprs = true;
     this.allowHashBang = false;
     this.onToken = null;
     this.onComment = null;
@@ -69,12 +70,14 @@ public class Options {
     this.v8Extensions = false;
     this.e4x = false;
     this.onRecoverableError = null;
+    this.allowFlowTypes = false;
   }
 
   public Options(Options that) {
     this.allowHashBang = that.allowHashBang;
     this.allowReturnOutsideFunction = that.allowReturnOutsideFunction;
     this.allowImportExportEverywhere = that.allowImportExportEverywhere;
+    this.allowGeneratedCodeExprs = that.allowGeneratedCodeExprs;
     this.preserveParens = that.preserveParens;
     this.mozExtensions = that.mozExtensions;
     this.jscript = that.jscript;
@@ -90,6 +93,7 @@ public class Options {
     this.onComment = that.onComment;
     this.program = that.program;
     this.onRecoverableError = that.onRecoverableError;
+    this.allowFlowTypes = that.allowFlowTypes;
   }
 
   public boolean allowHashBang() {
@@ -102,6 +106,10 @@ public class Options {
 
   public boolean allowImportExportEverywhere() {
     return allowImportExportEverywhere;
+  }
+
+  public boolean allowGeneratedCodeExprs() {
+    return allowGeneratedCodeExprs;
   }
 
   public boolean preserveParens() {
@@ -122,6 +130,10 @@ public class Options {
 
   public boolean v8Extensions() {
     return v8Extensions;
+  }
+
+  public boolean allowFlowTypes() {
+    return allowFlowTypes;
   }
 
   public boolean e4x() {
@@ -194,6 +206,10 @@ public class Options {
 
   public void v8Extensions(boolean v8Extensions) {
     this.v8Extensions = v8Extensions;
+  }
+
+  public void allowFlowTypes(boolean allowFlowTypes) {
+    this.allowFlowTypes = allowFlowTypes;
   }
 
   public void e4x(boolean e4x) {

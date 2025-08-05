@@ -5,6 +5,7 @@
  * @kind problem
  * @id cpp/uninitialized-local
  * @problem.severity warning
+ * @security-severity 7.8
  * @precision medium
  * @tags security
  *       external/cwe/cwe-665
@@ -12,7 +13,7 @@
  */
 
 import cpp
-import semmle.code.cpp.controlflow.LocalScopeVariableReachability
+import semmle.code.cpp.controlflow.StackVariableReachability
 
 /**
  * Auxiliary predicate: Types that don't require initialization
@@ -20,11 +21,14 @@ import semmle.code.cpp.controlflow.LocalScopeVariableReachability
  */
 predicate allocatedType(Type t) {
   /* Arrays: "int foo[1]; foo[0] = 42;" is ok. */
-  t instanceof ArrayType or
+  t instanceof ArrayType
+  or
   /* Structs: "struct foo bar; bar.baz = 42" is ok. */
-  t instanceof Class or
+  t instanceof Class
+  or
   /* Typedefs to other allocated types are fine. */
-  allocatedType(t.(TypedefType).getUnderlyingType()) or
+  allocatedType(t.(TypedefType).getUnderlyingType())
+  or
   /* Type specifiers don't affect whether or not a type is allocated. */
   allocatedType(t.getUnspecifiedType())
 }
@@ -37,25 +41,17 @@ DeclStmt declWithNoInit(LocalVariable v) {
   result.getADeclaration() = v and
   not exists(v.getInitializer()) and
   /* The type of the variable is not stack-allocated. */
-  not allocatedType(v.getType()) and
-  /* The variable is not static (otherwise it is zeroed). */
-  not v.isStatic() and
-  /* The variable is not extern (otherwise it is zeroed). */
-  not v.hasSpecifier("extern")
+  exists(Type t | t = v.getType() | not allocatedType(t))
 }
 
-class UninitialisedLocalReachability extends LocalScopeVariableReachability {
+class UninitialisedLocalReachability extends StackVariableReachability {
   UninitialisedLocalReachability() { this = "UninitialisedLocal" }
 
-  override predicate isSource(ControlFlowNode node, LocalScopeVariable v) {
-    node = declWithNoInit(v)
-  }
+  override predicate isSource(ControlFlowNode node, StackVariable v) { node = declWithNoInit(v) }
 
-  override predicate isSink(ControlFlowNode node, LocalScopeVariable v) {
-    useOfVarActual(v, node)
-  }
+  override predicate isSink(ControlFlowNode node, StackVariable v) { useOfVarActual(v, node) }
 
-  override predicate isBarrier(ControlFlowNode node, LocalScopeVariable v) {
+  override predicate isBarrier(ControlFlowNode node, StackVariable v) {
     // only report the _first_ possibly uninitialized use
     useOfVarActual(v, node) or
     definitionBarrier(v, node)
@@ -63,24 +59,26 @@ class UninitialisedLocalReachability extends LocalScopeVariableReachability {
 }
 
 pragma[noinline]
-predicate containsInlineAssembly(Function f) {
-  exists(AsmStmt s | s.getEnclosingFunction() = f)
-}
+predicate containsInlineAssembly(Function f) { exists(AsmStmt s | s.getEnclosingFunction() = f) }
 
 /**
  * Auxiliary predicate: List common exceptions or false positives
  * for this check to exclude them.
  */
 VariableAccess commonException() {
-  /* If the uninitialized use we've found is in a macro expansion, it's
-   * typically something like va_start(), and we don't want to complain.
-   */
-  result.getParent().isInMacroExpansion() or
-  result.getParent() instanceof BuiltInOperation or
-  /*
-   * Finally, exclude functions that contain assembly blocks. It's
-   * anyone's guess what happens in those.
-   */
+  // If the uninitialized use we've found is in a macro expansion, it's
+  // typically something like va_start(), and we don't want to complain.
+  result.getParent().isInMacroExpansion()
+  or
+  result.getParent() instanceof BuiltInOperation
+  or
+  // Ignore any uninitialized use that is explicitly cast to void and
+  // is an expression statement.
+  result.getActualType() instanceof VoidType and
+  result.getParent() instanceof ExprStmt
+  or
+  // Finally, exclude functions that contain assembly blocks. It's
+  // anyone's guess what happens in those.
   containsInlineAssembly(result.getEnclosingFunction())
 }
 
@@ -88,4 +86,4 @@ from UninitialisedLocalReachability r, LocalVariable v, VariableAccess va
 where
   r.reaches(_, v, va) and
   not va = commonException()
-select va, "The variable $@ may not be initialized here.", v, v.getName()
+select va, "The variable $@ may not be initialized at this access.", v, v.getName()

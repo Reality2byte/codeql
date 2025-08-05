@@ -4,14 +4,15 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 /**
- * Holds the output of the <tt>get-type-table</tt> command.
+ * Holds the output of the <code>get-type-table</code> command.
  *
- * <p>See documentation in <tt>parser-wrapper/src/type_table.ts</tt>.
+ * <p>See documentation in <code>parser-wrapper/src/type_table.ts</code>.
  */
 public class TypeTable {
   private final JsonArray typeStrings;
   private final JsonArray typeToStringValues;
   private final JsonObject propertyLookups;
+  private final JsonObject typeAliases;
   private final JsonArray symbolStrings;
   private final JsonObject moduleMappings;
   private final JsonObject globalMappings;
@@ -27,6 +28,7 @@ public class TypeTable {
     this.typeStrings = typeTable.get("typeStrings").getAsJsonArray();
     this.typeToStringValues = typeTable.get("typeToStringValues").getAsJsonArray();
     this.propertyLookups = typeTable.get("propertyLookups").getAsJsonObject();
+    this.typeAliases = typeTable.get("typeAliases").getAsJsonObject();
     this.symbolStrings = typeTable.get("symbolStrings").getAsJsonArray();
     this.moduleMappings = typeTable.get("moduleMappings").getAsJsonObject();
     this.globalMappings = typeTable.get("globalMappings").getAsJsonObject();
@@ -49,6 +51,10 @@ public class TypeTable {
 
   public JsonObject getPropertyLookups() {
     return propertyLookups;
+  }
+
+  public JsonObject getTypeAliases() {
+    return typeAliases;
   }
 
   public int getNumberOfTypes() {

@@ -1,12 +1,11 @@
 ﻿using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Semmle.Extraction.Kinds;
 
 namespace Semmle.Extraction.CSharp.Entities.Expressions
 {
-    class Access : Expression
+    internal class Access : Expression
     {
-        static ExprKind AccessKind(Context cx, ISymbol symbol)
+        private static ExprKind AccessKind(Context cx, ISymbol symbol)
         {
             switch (symbol.Kind)
             {
@@ -18,7 +17,8 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
                     return ExprKind.FIELD_ACCESS;
 
                 case SymbolKind.Property:
-                    return ExprKind.PROPERTY_ACCESS;
+                    return symbol is IPropertySymbol prop && prop.IsIndexer ?
+                         ExprKind.INDEXER_ACCESS : ExprKind.PROPERTY_ACCESS;
 
                 case SymbolKind.Event:
                     return ExprKind.EVENT_ACCESS;
@@ -42,14 +42,17 @@ namespace Semmle.Extraction.CSharp.Entities.Expressions
             }
         }
 
-        Access(ExpressionNodeInfo info, ISymbol symbol, bool implicitThis, IEntity target)
+        private Access(ExpressionNodeInfo info, ISymbol symbol, bool implicitThis, IEntity target)
             : base(info.SetKind(AccessKind(info.Context, symbol)))
         {
-            cx.TrapWriter.Writer.expr_access(this, target);
+            if (!(target is null))
+            {
+                Context.TrapWriter.Writer.expr_access(this, target);
+            }
 
             if (implicitThis && !symbol.IsStatic)
             {
-                This.CreateImplicit(cx, Entities.Type.Create(cx, symbol.ContainingType), Location, this, -1);
+                This.CreateImplicit(Context, symbol.ContainingType, Location, this, -1);
             }
         }
 

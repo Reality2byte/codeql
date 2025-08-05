@@ -23,7 +23,7 @@ where
   // completely to distinguish grammatical punctuation after which a space is
   // needed, and intra-identifier punctuation in, for example, a fully
   // qualified java class name.
-  s
+  pragma[only_bind_into](s)
       .getLiteral()
       .regexpCapture(".* (([-A-Za-z/'\\.:,]*[a-zA-Z]|[0-9]+)[\\.:,;!?']*)\"[^\"]*\\+[^\"]*\"[a-zA-Z].*",
         1) = word and

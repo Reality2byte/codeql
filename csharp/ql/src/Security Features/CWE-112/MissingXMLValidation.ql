@@ -4,6 +4,7 @@
  *              schema.
  * @kind path-problem
  * @problem.severity recommendation
+ * @security-severity 4.3
  * @precision high
  * @id cs/xml/missing-validation
  * @tags security
@@ -11,11 +12,11 @@
  */
 
 import csharp
-import semmle.code.csharp.security.dataflow.MissingXMLValidation::MissingXMLValidation
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.MissingXMLValidationQuery
+import MissingXmlValidation::PathGraph
 
-from TaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
+from MissingXmlValidation::PathNode source, MissingXmlValidation::PathNode sink
+where MissingXmlValidation::flowPath(source, sink)
 select sink.getNode(), source, sink,
-  "$@ flows to here and is processed as XML without validation because " +
-    sink.getNode().(Sink).getReason(), source.getNode(), "User-provided value"
+  "This XML processing depends on a $@ without validation because " +
+    sink.getNode().(Sink).getReason(), source.getNode(), "user-provided value"

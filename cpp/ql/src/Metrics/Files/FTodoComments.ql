@@ -9,13 +9,18 @@
  * @tags maintainability
  *       documentation
  */
+
 import cpp
 
 from File f, int n
-where f.fromSource()
-  and n = count(Comment c | 
-                c.getFile() = f and
-                (c.getContents().matches("%TODO%") or
-                 c.getContents().matches("%FIXME%")))
-select f, n 
-order by n
+where
+  f.fromSource() and
+  n =
+    count(Comment c |
+      c.getFile() = f and
+      (
+        c.getContents().matches("%TODO%") or
+        c.getContents().matches("%FIXME%")
+      )
+    )
+select f, n order by n

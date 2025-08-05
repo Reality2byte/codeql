@@ -4,6 +4,7 @@
  * @kind problem
  * @id cpp/memory-never-freed
  * @problem.severity warning
+ * @security-severity 7.5
  * @tags efficiency
  *       security
  *       external/cwe/cwe-401
@@ -11,6 +12,8 @@
 
 import MemoryFreed
 
-from Expr alloc
-where isAllocationExpr(alloc) and not allocMayBeFreed(alloc)
-select alloc, "This memory is never freed"
+from AllocationExpr alloc
+where
+  alloc.requiresDealloc() and
+  not allocMayBeFreed(alloc)
+select alloc, "This memory is never freed."

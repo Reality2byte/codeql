@@ -4,6 +4,7 @@
  * @kind problem
  * @id cpp/inconsistent-nullness-testing
  * @problem.severity warning
+ * @security-severity 7.5
  * @tags reliability
  *       security
  *       external/cwe/cwe-476
@@ -11,7 +12,7 @@
 
 import cpp
 
-from LocalScopeVariable v, ControlFlowNode def, VariableAccess checked, VariableAccess unchecked
+from StackVariable v, ControlFlowNode def, VariableAccess checked, VariableAccess unchecked
 where
   checked = v.getAnAccess() and
   dereferenced(checked) and
@@ -26,4 +27,4 @@ where
     definitionUsePair(v, other, unchecked)
   )
 select unchecked,
-  "This dereference is not guarded by a non-null check, whereas other dereferences are guarded"
+  "This dereference is not guarded by a non-null check, whereas other dereferences are guarded."

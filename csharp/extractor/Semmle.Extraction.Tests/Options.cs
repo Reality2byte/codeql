@@ -1,37 +1,37 @@
 using Xunit;
-using Semmle.Util.Logging;
 using System;
 using System.IO;
+using System.Text.RegularExpressions;
 using Semmle.Util;
+using Semmle.Util.Logging;
 
 namespace Semmle.Extraction.Tests
 {
     public class OptionsTests
     {
-        CSharp.Options options;
-        CSharp.Standalone.Options standaloneOptions;
+        private CSharp.Options? options;
+        private CSharp.Standalone.Options? standaloneOptions;
 
         public OptionsTests()
         {
-            Environment.SetEnvironmentVariable("SEMMLE_EXTRACTOR_OPTIONS", "");
             Environment.SetEnvironmentVariable("LGTM_INDEX_EXTRACTOR", "");
         }
 
         [Fact]
         public void DefaultOptions()
         {
-            options = CSharp.Options.CreateWithEnvironment(new string[] { });
+            options = CSharp.Options.CreateWithEnvironment(Array.Empty<string>());
             Assert.True(options.Cache);
-            Assert.False(options.CIL);
+            Assert.True(options.CIL);
             Assert.Null(options.Framework);
             Assert.Null(options.CompilerName);
             Assert.Empty(options.CompilerArguments);
             Assert.True(options.Threads >= 1);
             Assert.Equal(Verbosity.Info, options.Verbosity);
             Assert.False(options.Console);
-            Assert.False(options.ClrTracer);
             Assert.False(options.PDB);
             Assert.False(options.Fast);
+            Assert.Equal(TrapWriter.CompressionMode.Brotli, options.TrapCompression);
         }
 
         [Fact]
@@ -51,10 +51,20 @@ namespace Semmle.Extraction.Tests
         [Fact]
         public void CIL()
         {
-            options = CSharp.Options.CreateWithEnvironment(new string[] { "--cil" });
+            options = CSharp.Options.CreateWithEnvironment(Array.Empty<string>());
             Assert.True(options.CIL);
-            options = CSharp.Options.CreateWithEnvironment(new string[] { "--cil", "--nocil" });
+
+            Environment.SetEnvironmentVariable("CODEQL_EXTRACTOR_CSHARP_OPTION_CIL", "false");
+            options = CSharp.Options.CreateWithEnvironment(Array.Empty<string>());
             Assert.False(options.CIL);
+
+            Environment.SetEnvironmentVariable("CODEQL_EXTRACTOR_CSHARP_OPTION_CIL", "true");
+            options = CSharp.Options.CreateWithEnvironment(Array.Empty<string>());
+            Assert.True(options.CIL);
+
+            Environment.SetEnvironmentVariable("CODEQL_EXTRACTOR_CSHARP_OPTION_CIL", null);
+            options = CSharp.Options.CreateWithEnvironment(Array.Empty<string>());
+            Assert.True(options.CIL);
         }
 
         [Fact]
@@ -122,44 +132,26 @@ namespace Semmle.Extraction.Tests
         }
 
         [Fact]
-        public void EnvironmentVariables()
-        {
-            Environment.SetEnvironmentVariable("SEMMLE_EXTRACTOR_OPTIONS", "--cil c");
-            options = CSharp.Options.CreateWithEnvironment(new string[] { "a", "b" });
-            Assert.True(options.CIL);
-            Assert.Equal("a", options.CompilerArguments[0]);
-            Assert.Equal("b", options.CompilerArguments[1]);
-            Assert.Equal("c", options.CompilerArguments[2]);
-
-            Environment.SetEnvironmentVariable("SEMMLE_EXTRACTOR_OPTIONS", "");
-            Environment.SetEnvironmentVariable("LGTM_INDEX_EXTRACTOR", "--nocil");
-            options = CSharp.Options.CreateWithEnvironment(new string[] { "--cil" });
-            Assert.False(options.CIL);
-        }
-
-        [Fact]
         public void StandaloneDefaults()
         {
-            standaloneOptions = CSharp.Standalone.Options.Create(new string[] { });
-            Assert.Equal(0, standaloneOptions.DllDirs.Count);
-            Assert.True(standaloneOptions.UseNuGet);
-            Assert.True(standaloneOptions.UseMscorlib);
+            standaloneOptions = CSharp.Standalone.Options.Create(Array.Empty<string>());
+            Assert.Empty(standaloneOptions.Dependencies.DllDirs);
+            Assert.True(standaloneOptions.Dependencies.UseNuGet);
             Assert.False(standaloneOptions.SkipExtraction);
-            Assert.Null(standaloneOptions.SolutionFile);
-            Assert.True(standaloneOptions.ScanNetFrameworkDlls);
+            Assert.Null(standaloneOptions.Dependencies.SolutionFile);
+            Assert.True(standaloneOptions.Dependencies.ScanNetFrameworkDlls);
             Assert.False(standaloneOptions.Errors);
         }
 
         [Fact]
         public void StandaloneOptions()
         {
-            standaloneOptions = CSharp.Standalone.Options.Create(new string[] { "--references:foo", "--silent", "--skip-nuget", "--skip-dotnet", "--exclude", "bar", "--nostdlib" });
-            Assert.Equal("foo", standaloneOptions.DllDirs[0]);
-            Assert.Equal("bar", standaloneOptions.Excludes[0]);
+            standaloneOptions = CSharp.Standalone.Options.Create(new string[] { "--references:foo", "--silent", "--skip-nuget", "--skip-dotnet", "--exclude", "bar" });
+            Assert.Equal("foo", standaloneOptions.Dependencies.DllDirs[0]);
+            Assert.Equal("bar", standaloneOptions.Dependencies.Excludes[0]);
             Assert.Equal(Verbosity.Off, standaloneOptions.Verbosity);
-            Assert.False(standaloneOptions.UseNuGet);
-            Assert.False(standaloneOptions.UseMscorlib);
-            Assert.False(standaloneOptions.ScanNetFrameworkDlls);
+            Assert.False(standaloneOptions.Dependencies.UseNuGet);
+            Assert.False(standaloneOptions.Dependencies.ScanNetFrameworkDlls);
             Assert.False(standaloneOptions.Errors);
             Assert.False(standaloneOptions.Help);
         }
@@ -183,27 +175,46 @@ namespace Semmle.Extraction.Tests
         public void Fast()
         {
             Environment.SetEnvironmentVariable("LGTM_INDEX_EXTRACTOR", "--fast");
-            options = CSharp.Options.CreateWithEnvironment(new string[] {});
+            options = CSharp.Options.CreateWithEnvironment(Array.Empty<string>());
             Assert.True(options.Fast);
         }
 
         [Fact]
         public void ArchiveArguments()
         {
-            var file1 = Path.GetTempFileName();
-            var file2 = Path.GetTempFileName();
+            using var sw = new StringWriter();
+            var file = Path.GetTempFileName();
 
             try
             {
-                File.AppendAllText(file1, "Test");
-                new string[] { "/noconfig", "@" + file1 }.ArchiveCommandLine(file2);
-                Assert.Equal("Test", File.ReadAllText(file2));
+                File.AppendAllText(file, "Test");
+                new string[] { "/noconfig", "@" + file }.WriteCommandLine(sw);
+                Assert.Equal("Test", Regex.Replace(sw.ToString(), @"\t|\n|\r", ""));
             }
             finally
             {
-                File.Delete(file1);
-                File.Delete(file2);
+                File.Delete(file);
             }
+        }
+
+        [Fact]
+        public void CompressionTests()
+        {
+            Environment.SetEnvironmentVariable("CODEQL_EXTRACTOR_CSHARP_OPTION_TRAP_COMPRESSION", "gzip");
+            options = CSharp.Options.CreateWithEnvironment(Array.Empty<string>());
+            Assert.Equal(TrapWriter.CompressionMode.Gzip, options.TrapCompression);
+
+            Environment.SetEnvironmentVariable("CODEQL_EXTRACTOR_CSHARP_OPTION_TRAP_COMPRESSION", "brotli");
+            options = CSharp.Options.CreateWithEnvironment(Array.Empty<string>());
+            Assert.Equal(TrapWriter.CompressionMode.Brotli, options.TrapCompression);
+
+            Environment.SetEnvironmentVariable("CODEQL_EXTRACTOR_CSHARP_OPTION_TRAP_COMPRESSION", "none");
+            options = CSharp.Options.CreateWithEnvironment(Array.Empty<string>());
+            Assert.Equal(TrapWriter.CompressionMode.None, options.TrapCompression);
+
+            Environment.SetEnvironmentVariable("CODEQL_EXTRACTOR_CSHARP_OPTION_TRAP_COMPRESSION", null);
+            options = CSharp.Options.CreateWithEnvironment(Array.Empty<string>());
+            Assert.Equal(TrapWriter.CompressionMode.Brotli, options.TrapCompression);
         }
     }
 }

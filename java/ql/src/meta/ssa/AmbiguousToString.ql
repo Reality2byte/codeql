@@ -4,8 +4,8 @@
  *              sub-classes of 'SsaVariable'.
  * @kind problem
  * @problem.severity error
- * @id java/sanity/non-unique-ssa-tostring
- * @tags sanity
+ * @id java/consistency/non-unique-ssa-tostring
+ * @tags consistency
  */
 
 import java
@@ -22,6 +22,6 @@ where
     or
     multipleToString(ssa) and problem = "SSA variable with multiple 'toString()' results for "
   ) and
-  n = ssa.getCFGNode() and
+  n = ssa.getCfgNode() and
   v = ssa.getSourceVariable().getVariable()
 select n, problem + v

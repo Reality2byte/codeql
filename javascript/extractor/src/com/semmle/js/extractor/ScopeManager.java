@@ -1,5 +1,14 @@
 package com.semmle.js.extractor;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
 import com.semmle.js.ast.ArrayPattern;
 import com.semmle.js.ast.BlockStatement;
 import com.semmle.js.ast.CatchClause;
@@ -46,22 +55,14 @@ import com.semmle.ts.ast.InferTypeExpr;
 import com.semmle.ts.ast.InterfaceDeclaration;
 import com.semmle.ts.ast.InterfaceTypeExpr;
 import com.semmle.ts.ast.IntersectionTypeExpr;
-import com.semmle.ts.ast.IsTypeExpr;
 import com.semmle.ts.ast.NamespaceDeclaration;
 import com.semmle.ts.ast.ParenthesizedTypeExpr;
+import com.semmle.ts.ast.PredicateTypeExpr;
 import com.semmle.ts.ast.TupleTypeExpr;
 import com.semmle.ts.ast.TypeAliasDeclaration;
 import com.semmle.ts.ast.UnionTypeExpr;
 import com.semmle.util.trap.TrapWriter;
 import com.semmle.util.trap.TrapWriter.Label;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 /** Class for maintaining scoping information during extraction. */
 public class ScopeManager {
@@ -96,16 +97,59 @@ public class ScopeManager {
     }
   }
 
+  public static enum FileKind {
+    /** Any file not specific to one of the other file kinds. */
+    PLAIN,
+
+    /** A file potentially containing template tags. */
+    TEMPLATE,
+
+    /** A d.ts file, containing TypeScript ambient declarations. */
+    TYPESCRIPT_DECLARATION,
+  }
+
   private final TrapWriter trapWriter;
   private Scope curScope;
   private final Scope toplevelScope;
   private final ECMAVersion ecmaVersion;
   private final Set<String> implicitGlobals = new LinkedHashSet<String>();
+  private Scope implicitVariableScope;
+  private final FileKind fileKind;
 
-  public ScopeManager(TrapWriter trapWriter, ECMAVersion ecmaVersion) {
+  public ScopeManager(TrapWriter trapWriter, ECMAVersion ecmaVersion, FileKind fileKind) {
     this.trapWriter = trapWriter;
-    this.toplevelScope = enterScope(0, trapWriter.globalID("global_scope"), null);
+    this.toplevelScope = enterScope(ScopeKind.GLOBAL, trapWriter.globalID("global_scope"), null);
     this.ecmaVersion = ecmaVersion;
+    this.implicitVariableScope = toplevelScope;
+    this.fileKind = fileKind;
+  }
+
+  /**
+   * Returns true the current scope is potentially in a template file, and may contain
+   * relevant template tags.
+   */
+  public boolean isInTemplateFile() {
+    return this.fileKind == FileKind.TEMPLATE;
+  }
+
+  public boolean isInTypeScriptDeclarationFile() {
+    return this.fileKind == FileKind.TYPESCRIPT_DECLARATION;
+  }
+
+  /**
+   * Sets the scope in which to declare variables that are referenced without
+   * being declared. This defaults to the global scope.
+   */
+  public void setImplicitVariableScope(Scope implicitVariableScope) {
+    this.implicitVariableScope = implicitVariableScope;
+  }
+
+  /**
+   * Reset the scope in which to declare variables that are referenced without
+   * being declared back to the global scope.
+   */
+  public void resetImplicitVariableScope() {
+    this.implicitVariableScope = toplevelScope;
   }
 
   /**
@@ -115,12 +159,12 @@ public class ScopeManager {
    * @param scopeLabel the label of the scope itself
    * @param scopeNodeLabel the label of the AST node inducing this scope; may be null
    */
-  public Scope enterScope(int scopeKind, Label scopeLabel, Label scopeNodeLabel) {
+  public Scope enterScope(ScopeKind scopeKind, Label scopeLabel, Label scopeNodeLabel) {
     Label outerScopeLabel = curScope == null ? null : curScope.scopeLabel;
 
     curScope = new Scope(curScope, scopeLabel);
 
-    trapWriter.addTuple("scopes", curScope.scopeLabel, scopeKind);
+    trapWriter.addTuple("scopes", curScope.scopeLabel, scopeKind.getValue());
     if (scopeNodeLabel != null)
       trapWriter.addTuple("scopenodes", scopeNodeLabel, curScope.scopeLabel);
     if (outerScopeLabel != null)
@@ -138,7 +182,7 @@ public class ScopeManager {
   }
 
   /**
-   * Enters a scope for a block of form <tt>declare global { ... }</tt>.
+   * Enters a scope for a block of form <code>declare global { ... }</code>.
    *
    * <p>Declarations in this block will contribute to the global scope, but references can still be
    * resolved in the scope enclosing the declaration itself. The scope itself does not have its own
@@ -162,42 +206,42 @@ public class ScopeManager {
     return toplevelScope;
   }
 
-  private static final Map<String, Integer> scopeKinds = new LinkedHashMap<String, Integer>();
+  private static final Map<String, ScopeKind> scopeKinds = new LinkedHashMap<String, ScopeKind>();
 
   static {
-    scopeKinds.put("Program", 0);
-    scopeKinds.put("FunctionDeclaration", 1);
-    scopeKinds.put("FunctionExpression", 1);
-    scopeKinds.put("ArrowFunctionExpression", 1);
-    scopeKinds.put("CatchClause", 2);
-    scopeKinds.put("Module", 3);
-    scopeKinds.put("BlockStatement", 4);
-    scopeKinds.put("SwitchStatement", 4);
-    scopeKinds.put("ForStatement", 5);
-    scopeKinds.put("ForInStatement", 6);
-    scopeKinds.put("ForOfStatement", 6);
-    scopeKinds.put("ComprehensionBlock", 7);
-    scopeKinds.put("LetStatement", 4);
-    scopeKinds.put("LetExpression", 4);
-    scopeKinds.put("ClassExpression", 8);
-    scopeKinds.put("NamespaceDeclaration", 9);
-    scopeKinds.put("ClassDeclaration", 10);
-    scopeKinds.put("InterfaceDeclaration", 11);
-    scopeKinds.put("TypeAliasDeclaration", 12);
-    scopeKinds.put("MappedTypeExpr", 13);
-    scopeKinds.put("EnumDeclaration", 14);
-    scopeKinds.put("ExternalModuleDeclaration", 15);
-    scopeKinds.put("ConditionalTypeExpr", 16);
+    scopeKinds.put("Program", ScopeKind.GLOBAL);
+    scopeKinds.put("FunctionDeclaration", ScopeKind.FUNCTION);
+    scopeKinds.put("FunctionExpression", ScopeKind.FUNCTION);
+    scopeKinds.put("ArrowFunctionExpression", ScopeKind.FUNCTION);
+    scopeKinds.put("CatchClause", ScopeKind.CATCH);
+    scopeKinds.put("Module", ScopeKind.MODULE);
+    scopeKinds.put("BlockStatement", ScopeKind.BLOCK);
+    scopeKinds.put("SwitchStatement", ScopeKind.BLOCK);
+    scopeKinds.put("ForStatement", ScopeKind.FOR);
+    scopeKinds.put("ForInStatement", ScopeKind.FOR_IN);
+    scopeKinds.put("ForOfStatement", ScopeKind.FOR_IN);
+    scopeKinds.put("ComprehensionBlock", ScopeKind.COMPREHENSION_BLOCK);
+    scopeKinds.put("LetStatement", ScopeKind.BLOCK);
+    scopeKinds.put("LetExpression", ScopeKind.BLOCK);
+    scopeKinds.put("ClassExpression", ScopeKind.CLASS_EXPR);
+    scopeKinds.put("NamespaceDeclaration", ScopeKind.NAMESPACE);
+    scopeKinds.put("ClassDeclaration", ScopeKind.CLASS_DECL);
+    scopeKinds.put("InterfaceDeclaration", ScopeKind.INTERFACE);
+    scopeKinds.put("TypeAliasDeclaration", ScopeKind.TYPE_ALIAS);
+    scopeKinds.put("MappedTypeExpr", ScopeKind.MAPPED_TYPE);
+    scopeKinds.put("EnumDeclaration", ScopeKind.ENUM);
+    scopeKinds.put("ExternalModuleDeclaration", ScopeKind.EXTERNAL_MODULE);
+    scopeKinds.put("ConditionalTypeExpr", ScopeKind.CONDITIONAL_TYPE);
   }
 
   /**
    * Get the label for a given variable in the current scope; if it cannot be found, add it to the
-   * global scope.
+   * implicit variable scope (usually the global scope).
    */
   public Label getVarKey(String name) {
     Label lbl = curScope.lookupVariable(name);
     if (lbl == null) {
-      lbl = addVariable(name, toplevelScope);
+      lbl = addVariable(name, implicitVariableScope);
       implicitGlobals.add(name);
     }
     return lbl;
@@ -382,7 +426,7 @@ public class ScopeManager {
       // cases where we turn on the 'declKind' flags
       @Override
       public Void visit(FunctionDeclaration nd, Void v) {
-        if (nd.hasDeclareKeyword()) return null;
+        if (nd.hasDeclareKeyword() && !isInTypeScriptDeclarationFile()) return null;
         // strict mode functions are block-scoped, non-strict mode ones aren't
         if (blockscope == isStrict) visit(nd.getId(), DeclKind.var);
         return null;
@@ -390,7 +434,7 @@ public class ScopeManager {
 
       @Override
       public Void visit(ClassDeclaration nd, Void c) {
-        if (nd.hasDeclareKeyword()) return null;
+        if (nd.hasDeclareKeyword() && !isInTypeScriptDeclarationFile()) return null;
         if (blockscope) visit(nd.getClassDef().getId(), DeclKind.varAndType);
         return null;
       }
@@ -439,7 +483,7 @@ public class ScopeManager {
 
       @Override
       public Void visit(VariableDeclaration nd, Void v) {
-        if (nd.hasDeclareKeyword()) return null;
+        if (nd.hasDeclareKeyword() && !isInTypeScriptDeclarationFile()) return null;
         // in block scoping mode, only process 'let'; in non-block scoping
         // mode, only process non-'let'
         if (blockscope == nd.isBlockScoped(ecmaVersion)) visit(nd.getDeclarations());
@@ -474,7 +518,8 @@ public class ScopeManager {
       @Override
       public Void visit(NamespaceDeclaration nd, Void c) {
         if (blockscope) return null;
-        boolean hasVariable = nd.isInstantiated() && !nd.hasDeclareKeyword();
+        boolean isAmbientOutsideDtsFile = nd.hasDeclareKeyword() && !isInTypeScriptDeclarationFile();
+        boolean hasVariable = nd.isInstantiated() && !isAmbientOutsideDtsFile;
         visit(nd.getName(), hasVariable ? DeclKind.varAndNamespace : DeclKind.namespace);
         return null;
       }
@@ -622,7 +667,9 @@ public class ScopeManager {
               nd.getReturnType().accept(this, c);
             }
             for (ITypeExpression paramType : nd.getParameterTypes()) {
-              paramType.accept(this, c);
+              if (paramType != null) {
+                paramType.accept(this, c);
+              }
             }
             // note: `infer` types may not occur in type parameter bounds.
             return null;
@@ -660,8 +707,8 @@ public class ScopeManager {
           }
 
           @Override
-          public Void visit(IsTypeExpr nd, Void c) {
-            return nd.getRight().accept(this, c);
+          public Void visit(PredicateTypeExpr nd, Void c) {
+            return nd.getTypeExpr().accept(this, c);
           }
 
           @Override

@@ -1,15 +1,24 @@
 package com.semmle.js.extractor;
 
-import com.semmle.js.extractor.ExtractorConfig.HTMLHandling;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import com.semmle.extractor.html.HtmlPopulator;
 import com.semmle.js.extractor.ExtractorConfig.Platform;
 import com.semmle.js.extractor.ExtractorConfig.SourceType;
 import com.semmle.js.extractor.FileExtractor.FileType;
-import com.semmle.js.extractor.trapcache.DefaultTrapCache;
-import com.semmle.js.extractor.trapcache.DummyTrapCache;
 import com.semmle.js.extractor.trapcache.ITrapCache;
 import com.semmle.js.parser.ParsedProject;
-import com.semmle.js.parser.TypeScriptParser;
 import com.semmle.ts.extractor.TypeExtractor;
+import com.semmle.ts.extractor.TypeScriptParser;
 import com.semmle.ts.extractor.TypeTable;
 import com.semmle.util.data.StringUtil;
 import com.semmle.util.data.UnitParser;
@@ -22,14 +31,9 @@ import com.semmle.util.io.WholeIO;
 import com.semmle.util.language.LegacyLanguage;
 import com.semmle.util.process.ArgsParser;
 import com.semmle.util.process.ArgsParser.FileMode;
+import com.semmle.util.process.Env;
+import com.semmle.util.process.Env.Var;
 import com.semmle.util.trap.TrapWriter;
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.regex.Pattern;
 
 /** The main entry point of the JavaScript extractor. */
 public class Main {
@@ -37,7 +41,7 @@ public class Main {
    * A version identifier that should be updated every time the extractor changes in such a way that
    * it may produce different tuples for the same file under the same {@link ExtractorConfig}.
    */
-  public static final String EXTRACTOR_VERSION = "2019-07-25";
+  public static final String EXTRACTOR_VERSION = "2023-10-13";
 
   public static final Pattern NEWLINE = Pattern.compile("\n");
 
@@ -55,8 +59,6 @@ public class Main {
   private static final String P_PLATFORM = "--platform";
   private static final String P_QUIET = "--quiet";
   private static final String P_SOURCE_TYPE = "--source-type";
-  private static final String P_TRAP_CACHE = "--trap-cache";
-  private static final String P_TRAP_CACHE_BOUND = "--trap-cache-bound";
   private static final String P_TYPESCRIPT = "--typescript";
   private static final String P_TYPESCRIPT_FULL = "--typescript-full";
   private static final String P_TYPESCRIPT_RAM = "--typescript-ram";
@@ -76,8 +78,8 @@ public class Main {
   private PathMatcher includeMatcher, excludeMatcher;
   private FileExtractor fileExtractor;
   private ExtractorState extractorState;
-  private final Set<File> projectFiles = new LinkedHashSet<>();
-  private final Set<File> files = new LinkedHashSet<>();
+  private Set<File> projectFiles = new LinkedHashSet<>();
+  private Set<File> files = new LinkedHashSet<>();
   private final Set<File> extractedFiles = new LinkedHashSet<>();
 
   /* used to detect cyclic directory hierarchies */
@@ -106,22 +108,7 @@ public class Main {
     ap.parse();
 
     extractorConfig = parseJSOptions(ap);
-    ITrapCache trapCache;
-    if (ap.has(P_TRAP_CACHE)) {
-      Long sizeBound = null;
-      if (ap.has(P_TRAP_CACHE_BOUND)) {
-        String tcb = ap.getString(P_TRAP_CACHE_BOUND);
-        sizeBound = DefaultTrapCache.asFileSize(tcb);
-        if (sizeBound == null) ap.error("Invalid TRAP cache size bound: " + tcb);
-      }
-      trapCache = new DefaultTrapCache(ap.getString(P_TRAP_CACHE), sizeBound, EXTRACTOR_VERSION);
-    } else {
-      if (ap.has(P_TRAP_CACHE_BOUND))
-        ap.error(
-            P_TRAP_CACHE_BOUND + " should only be specified together with " + P_TRAP_CACHE + ".");
-      trapCache = new DummyTrapCache();
-    }
-    fileExtractor = new FileExtractor(extractorConfig, extractorOutputConfig, trapCache);
+    fileExtractor = new FileExtractor(extractorConfig, extractorOutputConfig, ITrapCache.fromExtractorOptions());
 
     setupMatchers(ap);
 
@@ -132,22 +119,41 @@ public class Main {
       return;
     }
 
+    // Sort files for determinism
+    projectFiles = projectFiles.stream()
+          .sorted(AutoBuild.FILE_ORDERING)
+          .collect(Collectors.toCollection(() -> new LinkedHashSet<>()));
+
+    files = files.stream()
+        .sorted(AutoBuild.FILE_ORDERING)
+        .collect(Collectors.toCollection(() -> new LinkedHashSet<>()));
+
+    // Extract HTML files first, as they may contain embedded TypeScript code
+    for (File file : files) {
+      if (FileType.forFile(file, extractorConfig) == FileType.HTML) {
+        ensureFileIsExtracted(file, ap);
+      }
+    }
+
     TypeScriptParser tsParser = extractorState.getTypeScriptParser();
     tsParser.setTypescriptRam(extractorConfig.getTypeScriptRam());
     if (containsTypeScriptFiles()) {
       tsParser.verifyInstallation(!ap.has(P_QUIET));
     }
+
     for (File projectFile : projectFiles) {
 
       long start = verboseLogStartTimer(ap, "Opening project " + projectFile);
-      ParsedProject project = tsParser.openProject(projectFile);
+      ParsedProject project = tsParser.openProject(projectFile, DependencyInstallationResult.empty, extractorConfig.getVirtualSourceRoot());
       verboseLogEndTimer(ap, start);
       // Extract all files belonging to this project which are also matched
       // by our include/exclude filters.
       List<File> filesToExtract = new ArrayList<>();
-      for (File sourceFile : project.getSourceFiles()) {
-        if (files.contains(normalizeFile(sourceFile))
-            && !extractedFiles.contains(sourceFile.getAbsoluteFile())) {
+      for (File sourceFile : project.getOwnFiles()) {
+        File normalizedFile = normalizeFile(sourceFile);
+        if ((files.contains(normalizedFile) || extractorState.getSnippets().containsKey(normalizedFile.toPath()))
+            && !extractedFiles.contains(sourceFile.getAbsoluteFile())
+            && FileType.TYPESCRIPT.getExtensions().contains(FileUtil.extension(sourceFile))) {
           filesToExtract.add(sourceFile);
         }
       }
@@ -189,12 +195,37 @@ public class Main {
 
     // Extract files that were not part of a project.
     for (File f : files) {
+      if (isFileDerivedFromTypeScriptFile(f))
+        continue;
       ensureFileIsExtracted(f, ap);
     }
   }
 
+  /**
+   * Returns true if the given path is likely the output of compiling a TypeScript file
+   * which we have already extracted.
+   */
+  private boolean isFileDerivedFromTypeScriptFile(File path) {
+    String name = path.getName();
+    if (!name.endsWith(".js"))
+      return false;
+    String stem = name.substring(0, name.length() - ".js".length());
+    for (String ext : FileType.TYPESCRIPT.getExtensions()) {
+      if (new File(path.getParent(), stem + ext).exists()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private void extractTypeTable(File fileHandle, TypeTable table) {
-    TrapWriter trapWriter = extractorOutputConfig.getTrapWriterFactory().mkTrapWriter(fileHandle);
+    TrapWriter trapWriter =
+        extractorOutputConfig
+            .getTrapWriterFactory()
+            .mkTrapWriter(
+                new File(
+                    fileHandle.getParentFile(),
+                    fileHandle.getName() + ".codeql-typescript-typetable"));
     try {
       new TypeExtractor(trapWriter, table).extract();
     } finally {
@@ -249,8 +280,12 @@ public class Main {
   }
 
   public void collectFiles(ArgsParser ap) {
-    for (File f : ap.getOneOrMoreFiles("files", FileMode.FILE_OR_DIRECTORY_MUST_EXIST))
+    for (File f : getFilesArg(ap))
       collectFiles(f, true);
+  }
+
+  private List<File> getFilesArg(ArgsParser ap) {
+    return ap.getOneOrMoreFiles("files", FileMode.FILE_OR_DIRECTORY_MUST_EXIST);
   }
 
   public void setupMatchers(ArgsParser ap) {
@@ -328,7 +363,7 @@ public class Main {
         0,
         "Enable experimental support for pending ECMAScript proposals "
             + "(public class fields, function.sent, decorators, export extensions, function bind, "
-            + "parameter-less catch, dynamic import, numeric separators, bigints), "
+            + "parameter-less catch, dynamic import, numeric separators, bigints, top-level await), "
             + "as well as other language extensions (E4X, JScript, Mozilla and v8-specific extensions) and full HTML extraction.");
     argsParser.addFlag(
         P_EXTERNS, 0, "Extract the given JavaScript files as Closure-style externs.");
@@ -378,12 +413,6 @@ public class Main {
     argsParser.addToleratedFlag(P_TOLERATE_PARSE_ERRORS, 0);
     argsParser.addFlag(
         P_ABORT_ON_PARSE_ERRORS, 0, "Abort extraction if a parse error is encountered.");
-    argsParser.addFlag(P_TRAP_CACHE, 1, "Use the given directory as the TRAP cache.");
-    argsParser.addFlag(
-        P_TRAP_CACHE_BOUND,
-        1,
-        "A (soft) upper limit on the size of the TRAP cache, "
-            + "in standard size units (e.g., 'g' for gigabytes).");
     argsParser.addFlag(P_DEFAULT_ENCODING, 1, "The encoding to use; default is UTF-8.");
     argsParser.addFlag(P_TYPESCRIPT, 0, "Enable basic TypesScript support.");
     argsParser.addFlag(
@@ -407,6 +436,21 @@ public class Main {
     return TypeScriptMode.NONE;
   }
 
+  private Path inferSourceRoot(ArgsParser ap) {
+    List<File> files = getFilesArg(ap);
+    Path sourceRoot = files.iterator().next().toPath().toAbsolutePath().getParent();
+    for (File file : files) {
+      Path path = file.toPath().toAbsolutePath().getParent();
+      for (int i = 0; i < sourceRoot.getNameCount(); ++i) {
+        if (!(i < path.getNameCount() && path.getName(i).equals(sourceRoot.getName(i)))) {
+          sourceRoot = sourceRoot.subpath(0, i);
+          break;
+        }
+      }
+    }
+    return sourceRoot;
+  }
+
   private ExtractorConfig parseJSOptions(ArgsParser ap) {
     ExtractorConfig cfg =
         new ExtractorConfig(enableExperimental(ap))
@@ -417,8 +461,8 @@ public class Main {
             .withHtmlHandling(
                 ap.getEnum(
                     P_HTML,
-                    HTMLHandling.class,
-                    ap.has(P_EXPERIMENTAL) ? HTMLHandling.ALL : HTMLHandling.ELEMENTS))
+                    HtmlPopulator.Config.class,
+                    ap.has(P_EXPERIMENTAL) ? HtmlPopulator.Config.ALL : HtmlPopulator.Config.ELEMENTS))
             .withFileType(getFileType(ap))
             .withSourceType(ap.getEnum(P_SOURCE_TYPE, SourceType.class, SourceType.AUTO))
             .withExtractLines(ap.has(P_EXTRACT_PROGRAM_TEXT))
@@ -428,6 +472,17 @@ public class Main {
                     ? UnitParser.parseOpt(ap.getString(P_TYPESCRIPT_RAM), UnitParser.MEGABYTES)
                     : 0);
     if (ap.has(P_DEFAULT_ENCODING)) cfg = cfg.withDefaultEncoding(ap.getString(P_DEFAULT_ENCODING));
+
+    // Make a usable virtual source root mapping.
+    // The concept of source root and scratch directory do not exist in the legacy extractor,
+    // so we construct these based on what we have.
+    String odasaDbDir = Env.systemEnv().getNonEmpty(Var.ODASA_DB);
+    VirtualSourceRoot virtualSourceRoot =
+        odasaDbDir == null
+            ? VirtualSourceRoot.none
+            : new VirtualSourceRoot(inferSourceRoot(ap), Paths.get(odasaDbDir, "working"));
+    cfg = cfg.withVirtualSourceRoot(virtualSourceRoot);
+
     return cfg;
   }
 

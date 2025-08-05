@@ -15,7 +15,7 @@ import semmle.code.csharp.commons.Collections
 import DataFlow
 
 predicate storesCollection(Callable c, Parameter p, Field f) {
-  f.getDeclaringType() = c.getDeclaringType().getABaseType*().getSourceDeclaration() and
+  f.getDeclaringType() = c.getDeclaringType().getABaseType*().getUnboundDeclaration() and
   f.getType() instanceof CollectionType and
   p = c.getAParameter() and
   f.getAnAssignedValue() = p.getAnAccess() and
@@ -23,21 +23,26 @@ predicate storesCollection(Callable c, Parameter p, Field f) {
 }
 
 predicate returnsCollection(Callable c, Field f) {
-  f.getDeclaringType() = c.getDeclaringType().getABaseType*().getSourceDeclaration() and
+  f.getDeclaringType() = c.getDeclaringType().getABaseType*().getUnboundDeclaration() and
   f.getType() instanceof CollectionType and
   c.canReturn(f.getAnAccess()) and
   not c.(Modifiable).isStatic()
 }
 
-predicate mayWriteToCollection(Expr modified) {
-  modified instanceof CollectionModificationAccess
+predicate nodeMayWriteToCollection(Node modified) {
+  modified.asExpr() instanceof CollectionModificationAccess
   or
-  exists(Expr mid | mayWriteToCollection(mid) | localFlow(exprNode(modified), exprNode(mid)))
+  exists(Node mid | nodeMayWriteToCollection(mid) | localFlowStep(modified, mid))
   or
-  exists(MethodCall mid, Callable c | mayWriteToCollection(mid) |
-    mid.getTarget() = c and
-    c.canReturn(modified)
+  exists(Node mid, MethodCall mc, Callable c | nodeMayWriteToCollection(mid) |
+    mc = mid.asExpr() and
+    mc.getTarget() = c and
+    c.canReturn(modified.asExpr())
   )
+}
+
+predicate mayWriteToCollection(Expr modified) {
+  nodeMayWriteToCollection(any(ExprNode n | n.getExpr() = modified))
 }
 
 predicate modificationAfter(Expr before, Expr after) {
@@ -73,4 +78,4 @@ where
   exposesByStore(c, f, why, whyText)
 select c,
   "'" + c.getName() + "' exposes the internal representation stored in field '" + f.getName() +
-    "'. The value may be modified $@.", why.getLocation(), whyText
+    "'. The value may be modified $@.", why, whyText

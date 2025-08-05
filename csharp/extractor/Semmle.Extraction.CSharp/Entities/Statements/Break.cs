@@ -1,12 +1,12 @@
+using System.IO;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Semmle.Extraction.Kinds;
-using System.IO;
 
 namespace Semmle.Extraction.CSharp.Entities.Statements
 {
-    class Break : Statement<BreakStatementSyntax>
+    internal class Break : Statement<BreakStatementSyntax>
     {
-        Break(Context cx, BreakStatementSyntax node, IStatementParentEntity parent, int child)
+        private Break(Context cx, BreakStatementSyntax node, IStatementParentEntity parent, int child)
             : base(cx, node, StmtKind.BREAK, parent, child) { }
 
         public static Break Create(Context cx, BreakStatementSyntax node, IStatementParentEntity parent, int child)

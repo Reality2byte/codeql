@@ -35,6 +35,7 @@ import com.semmle.js.ast.regexp.ZeroWidthNegativeLookbehind;
 import com.semmle.js.ast.regexp.ZeroWidthPositiveLookahead;
 import com.semmle.js.ast.regexp.ZeroWidthPositiveLookbehind;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /** A parser for ECMAScript 2018 regular expressions. */
@@ -281,9 +282,31 @@ public class RegExpParser {
     if (this.match("+")) return this.finishTerm(new Plus(loc, atom, !this.match("?")));
     if (this.match("?")) return this.finishTerm(new Opt(loc, atom, !this.match("?")));
     if (this.match("{")) {
-      Double lo = toNumber(this.readDigits(false)), hi = null;
-      if (this.match(",") && !this.lookahead("}")) hi = toNumber(this.readDigits(false));
-      this.expectRBrace();
+      String matched = "{"; // keeping track of the string matched so far, in case this turns out not to be a quantifier.
+      String digits = this.readDigits(false);
+      matched += digits;
+      Double lo = toNumber(digits), hi;
+      int prevPos = this.pos;
+      if (this.match(",")) {
+        matched += ",";
+        if (!this.lookahead("}")) {
+          // atom{lo, hi}
+          digits = this.readDigits(false);
+          matched += digits;
+          hi = toNumber(digits);
+        } else {
+          // atom{lo,}
+          hi = null;
+        }
+      } else {
+        // atom{lo}
+        hi = lo;
+      }
+      if (!this.match("}")) {
+        // Not a quantifier, just parsing it as a constant. 
+        // E.g. a Regexp such as `/a{|X/`, where there is no matching `}`. 
+        return this.finishTerm(new Sequence(loc, Arrays.asList(atom, new Constant(loc, matched))));
+      }
       return this.finishTerm(new Range(loc, atom, !this.match("?"), lo, hi));
     }
     return atom;
@@ -314,9 +337,40 @@ public class RegExpParser {
       return this.finishTerm(new Group(loc, capture, number, name, dis));
     }
 
-    char c = this.nextChar();
-    if ("^$\\.*+?()[]{}|".indexOf(c) != -1) this.error(Error.UNEXPECTED_CHARACTER, this.pos - 1);
-    return this.finishTerm(new Constant(loc, String.valueOf(c)));
+    // Parse consecutive constants into a single Constant node.
+    // Due to speculative parsing of string literals, this part of the code is fairly hot.
+    int startPos = this.pos;
+    int endPos = startPos;
+    while (endPos < src.length()) {
+      if ("^$\\.*+?()[]{}|".indexOf(src.charAt(endPos)) != -1) break;
+      ++endPos;
+    }
+    if (startPos == endPos) {
+      this.error(Error.UNEXPECTED_CHARACTER, endPos);
+      endPos = startPos + 1; // To ensure progress, make sure we parse at least one character.
+    }
+    // Check if the end of the constant belongs under an upcoming quantifier.
+    if (endPos != startPos + 1
+        && endPos < src.length()
+        && "*+?{".indexOf(src.charAt(endPos)) != -1) {
+      if (Character.isLowSurrogate(src.charAt(endPos - 1))
+          && Character.isHighSurrogate(src.charAt(endPos - 2))) {
+        // Don't split the surrogate pair.
+        if (endPos == startPos + 2) {
+          // The whole constant is a single wide character.
+        } else {
+          endPos -= 2; // Last 2 characters belong to an upcoming quantifier.
+        }
+      } else {
+        endPos--; // Last character belongs to an upcoming quantifier.
+      }
+    }
+    String str = src.substring(startPos, endPos);
+    this.pos = endPos;
+    loc.setEnd(pos());
+    loc.setSource(str);
+    // Do not call finishTerm as it will create another copy of 'str'.
+    return new Constant(loc, str);
   }
 
   private RegExpTerm parseAtomEscape(SourceLocation loc, boolean inCharClass) {
@@ -454,10 +508,18 @@ public class RegExpParser {
     return this.finishTerm(new CharacterClass(loc, elements, inverted));
   }
 
+  private static final List<String> escapeClasses = Arrays.asList("d", "D", "s", "S", "w", "W");
+
   private RegExpTerm parseCharacterClassElement() {
     SourceLocation loc = new SourceLocation(pos());
     RegExpTerm atom = this.parseCharacterClassAtom();
-    if (!this.lookahead("-]") && this.match("-"))
+    if (this.lookahead("-\\")) {
+      for (String c : escapeClasses) {
+        if (this.lookahead("-\\" + c))
+          return atom;
+      }
+    }
+    if (!this.lookahead("-]") && this.match("-") && !(atom instanceof CharacterClassEscape))
       return this.finishTerm(new CharacterClassRange(loc, atom, this.parseCharacterClassAtom()));
     return atom;
   }
@@ -469,6 +531,11 @@ public class RegExpParser {
       if (this.match("b")) return this.finishTerm(new ControlEscape(loc, "\b", 8, "\\b"));
       return this.finishTerm(this.parseAtomEscape(loc, true));
     }
-    return this.finishTerm(new Constant(loc, String.valueOf(c)));
+    String value = String.valueOf(c);
+    // Extract a surrogate pair as a single constant.
+    if (Character.isHighSurrogate(c) && Character.isLowSurrogate(peekChar(true))) {
+      value += this.nextChar();
+    }
+    return this.finishTerm(new Constant(loc, value));
   }
 }

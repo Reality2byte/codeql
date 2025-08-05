@@ -1,51 +1,74 @@
 package com.semmle.js.extractor;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Reader;
 import java.lang.ProcessBuilder.Redirect;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonParseException;
+import com.semmle.js.dependencies.AsyncFetcher;
+import com.semmle.js.dependencies.DependencyResolver;
+import com.semmle.js.dependencies.packument.PackageJson;
 import com.semmle.js.extractor.ExtractorConfig.SourceType;
 import com.semmle.js.extractor.FileExtractor.FileType;
 import com.semmle.js.extractor.trapcache.DefaultTrapCache;
 import com.semmle.js.extractor.trapcache.DummyTrapCache;
 import com.semmle.js.extractor.trapcache.ITrapCache;
+import com.semmle.js.parser.ParseError;
 import com.semmle.js.parser.ParsedProject;
-import com.semmle.js.parser.TypeScriptParser;
 import com.semmle.ts.extractor.TypeExtractor;
+import com.semmle.ts.extractor.TypeScriptParser;
+import com.semmle.ts.extractor.TypeScriptWrapperOOMError;
 import com.semmle.ts.extractor.TypeTable;
 import com.semmle.util.data.StringUtil;
+import com.semmle.util.diagnostic.DiagnosticLevel;
+import com.semmle.util.diagnostic.DiagnosticLocation;
+import com.semmle.util.diagnostic.DiagnosticWriter;
 import com.semmle.util.exception.CatastrophicError;
 import com.semmle.util.exception.Exceptions;
 import com.semmle.util.exception.ResourceError;
 import com.semmle.util.exception.UserError;
 import com.semmle.util.extraction.ExtractorOutputConfig;
 import com.semmle.util.files.FileUtil;
+import com.semmle.util.files.FileUtil8;
+import com.semmle.util.io.WholeIO;
 import com.semmle.util.io.csv.CSVReader;
 import com.semmle.util.language.LegacyLanguage;
 import com.semmle.util.process.Env;
+import com.semmle.util.process.Env.OS;
 import com.semmle.util.projectstructure.ProjectLayout;
 import com.semmle.util.trap.TrapWriter;
 
@@ -67,16 +90,14 @@ import com.semmle.util.trap.TrapWriter;
  *   <li><code>LGTM_INDEX_EXCLUDE</code>: a newline-separated list of paths to exclude
  *   <li><code>LGTM_REPOSITORY_FOLDERS_CSV</code>: the path of a CSV file containing file
  *       classifications
- *   <li><code>LGTM_INDEX_FILTERS</code>: a newline-separated list of {@link ProjectLayout}-style
- *       patterns that can be used to refine the list of files to include and exclude
+ *   <li><code>LGTM_INDEX_FILTERS</code>: a newline-separated list of strings of form "include:PATTERN"
+ *      or "exclude:PATTERN" that can be used to refine the list of files to include and exclude.
  *   <li><code>LGTM_INDEX_TYPESCRIPT</code>: whether to extract TypeScript
  *   <li><code>LGTM_INDEX_FILETYPES</code>: a newline-separated list of ".extension:filetype" pairs
- *       specifying which {@link FileType} to use for the given extension; the additional file
- *       type <code>XML</code> is also supported
+ *       specifying which {@link FileType} to use for the given extension; the additional file type
+ *       <code>XML</code> is also supported
  *   <li><code>LGTM_INDEX_XML_MODE</code>: whether to extract XML files
  *   <li><code>LGTM_THREADS</code>: the maximum number of files to extract in parallel
- *   <li><code>LGTM_TRAP_CACHE</code>: the path of a directory to use for trap caching
- *   <li><code>LGTM_TRAP_CACHE_BOUND</code>: the size to bound the trap cache to
  * </ul>
  *
  * <p>It extracts the following:
@@ -106,7 +127,7 @@ import com.semmle.util.trap.TrapWriter;
  * or "metadata" becomes an exclude path. Note that there are no implicit exclude paths.
  *
  * <p>The walking phase starts at each include path in turn and recursively traverses folders and
- * files. Symlinks and hidden folders are skipped, but not hidden files. If it encounters a
+ * files. Symlinks and most hidden folders are skipped, but not hidden files. If it encounters a
  * sub-folder whose path is excluded, traversal stops. If it encounters a file, that file becomes a
  * candidate, unless its path is excluded. If the path of a file is both an include path and an
  * exclude path, the inclusion takes precedence, and the file becomes a candidate after all.
@@ -130,12 +151,13 @@ import com.semmle.util.trap.TrapWriter;
  *
  * <ul>
  *   <li>All JavaScript files, that is, files with one of the extensions supported by {@link
- *       FileType#JS} (currently ".js", ".jsx", ".mjs", ".es6", ".es").
+ *       FileType#JS} (currently ".js", ".jsx", ".mjs", ".cjs", ".es6", ".es").
  *   <li>All HTML files, that is, files with with one of the extensions supported by {@link
- *       FileType#HTML} (currently ".htm", ".html", ".xhtm", ".xhtml", ".vue").
+ *       FileType#HTML} (currently ".htm", ".html", ".xhtm", ".xhtml", ".vue", ".html.erb", ".jsp").
  *   <li>All YAML files, that is, files with one of the extensions supported by {@link
  *       FileType#YAML} (currently ".raml", ".yaml", ".yml").
- *   <li>Files with base name "package.json".
+ *   <li>Files with base name "package.json" or "tsconfig.json", and files whose base name
+ *       is of the form "codeql-javascript-*.json".
  *   <li>JavaScript, JSON or YAML files whose base name starts with ".eslintrc".
  *   <li>All extension-less files.
  * </ul>
@@ -166,8 +188,8 @@ import com.semmle.util.trap.TrapWriter;
  * <p>If <code>LGTM_INDEX_XML_MODE</code> is set to <code>ALL</code>, then all files with extension
  * <code>.xml</code> under <code>LGTM_SRC</code> are extracted as XML (in addition to any files
  * whose file type is specified to be <code>XML</code> via <code>LGTM_INDEX_SOURCE_TYPE</code>).
- * Currently XML extraction does not respect inclusion and exclusion filters, but this is a bug,
- * not a feature, and hence will change eventually.
+ * Currently XML extraction does not respect inclusion and exclusion filters, but this is a bug, not
+ * a feature, and hence will change eventually.
  *
  * <p>Note that all these customisations only apply to <code>LGTM_SRC</code>. Extraction of externs
  * is not customisable.
@@ -196,18 +218,34 @@ public class AutoBuild {
   private final String defaultEncoding;
   private ExecutorService threadPool;
   private volatile boolean seenCode = false;
+  private volatile boolean seenFiles = false;
+  private boolean installDependencies = false;
+  private final VirtualSourceRoot virtualSourceRoot;
+  private ExtractorState state;
+  private final long maximumFileSizeInMegabytes;
+
+  /** The default timeout when installing dependencies, in milliseconds. */
+  public static final int INSTALL_DEPENDENCIES_DEFAULT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
   public AutoBuild() {
     this.LGTM_SRC = toRealPath(getPathFromEnvVar("LGTM_SRC"));
-    this.SEMMLE_DIST = getPathFromEnvVar(Env.Var.SEMMLE_DIST.toString());
+    this.SEMMLE_DIST = Paths.get(EnvironmentVariables.getExtractorRoot());
     this.outputConfig = new ExtractorOutputConfig(LegacyLanguage.JAVASCRIPT);
-    this.trapCache = mkTrapCache();
+    this.trapCache = ITrapCache.fromExtractorOptions();
     this.typeScriptMode =
         getEnumFromEnvVar("LGTM_INDEX_TYPESCRIPT", TypeScriptMode.class, TypeScriptMode.FULL);
     this.defaultEncoding = getEnvVar("LGTM_INDEX_DEFAULT_ENCODING");
+    this.installDependencies = Boolean.valueOf(getEnvVar("LGTM_INDEX_TYPESCRIPT_INSTALL_DEPS"));
+    this.virtualSourceRoot = makeVirtualSourceRoot();
+    this.maximumFileSizeInMegabytes = EnvironmentVariables.getMegabyteCountFromPrefixedEnv("MAX_FILE_SIZE", 10);
     setupFileTypes();
     setupXmlMode();
     setupMatchers();
+    this.state = new ExtractorState();
+  }
+
+  protected VirtualSourceRoot makeVirtualSourceRoot() {
+    return new VirtualSourceRoot(LGTM_SRC, toRealPath(Paths.get(EnvironmentVariables.getScratchDir())));
   }
 
   private String getEnvVar(String envVarName) {
@@ -255,28 +293,6 @@ public class AutoBuild {
     }
   }
 
-  /**
-   * Set up TRAP cache based on environment variables <code>LGTM_TRAP_CACHE</code> and <code>
-   * LGTM_TRAP_CACHE_BOUND</code>.
-   */
-  private ITrapCache mkTrapCache() {
-    ITrapCache trapCache;
-    String trapCachePath = getEnvVar("LGTM_TRAP_CACHE");
-    if (trapCachePath != null) {
-      Long sizeBound = null;
-      String trapCacheBound = getEnvVar("LGTM_TRAP_CACHE_BOUND");
-      if (trapCacheBound != null) {
-        sizeBound = DefaultTrapCache.asFileSize(trapCacheBound);
-        if (sizeBound == null)
-          throw new UserError("Invalid TRAP cache size bound: " + trapCacheBound);
-      }
-      trapCache = new DefaultTrapCache(trapCachePath, sizeBound, Main.EXTRACTOR_VERSION);
-    } else {
-      trapCache = new DummyTrapCache();
-    }
-    return trapCache;
-  }
-
   private void setupFileTypes() {
     for (String spec : Main.NEWLINE.split(getEnvVar("LGTM_INDEX_FILETYPES", ""))) {
       spec = spec.trim();
@@ -288,8 +304,7 @@ public class AutoBuild {
       try {
         fileType = StringUtil.uc(fileType);
         if ("XML".equals(fileType)) {
-          if (extension.length() < 2)
-            throw new UserError("Invalid extension '" + extension + "'.");
+          if (extension.length() < 2) throw new UserError("Invalid extension '" + extension + "'.");
           xmlExtensions.add(extension.substring(1));
         } else {
           fileTypes.put(extension, FileType.valueOf(fileType));
@@ -304,8 +319,7 @@ public class AutoBuild {
   private void setupXmlMode() {
     String xmlMode = getEnvVar("LGTM_INDEX_XML_MODE", "DISABLED");
     xmlMode = StringUtil.uc(xmlMode.trim());
-    if ("ALL".equals(xmlMode))
-      xmlExtensions.add("xml");
+    if ("ALL".equals(xmlMode)) xmlExtensions.add("xml");
     else if (!"DISABLED".equals(xmlMode))
       throw new UserError("Invalid XML mode '" + xmlMode + "' (should be either ALL or DISABLED).");
   }
@@ -379,9 +393,12 @@ public class AutoBuild {
     for (FileType filetype : defaultExtract)
       for (String extension : filetype.getExtensions()) patterns.add("**/*" + extension);
 
-    // include .eslintrc files and package.json files
+    // include .eslintrc files, package.json files, tsconfig.json files, and
+    // codeql-javascript-*.json files
     patterns.add("**/.eslintrc*");
     patterns.add("**/package.json");
+    patterns.add("**/tsconfig*.json");
+    patterns.add("**/codeql-javascript-*.json");
 
     // include any explicitly specified extensions
     for (String extension : fileTypes.keySet()) patterns.add("**/*" + extension);
@@ -389,6 +406,10 @@ public class AutoBuild {
     // exclude files whose name strongly suggests they are minified
     patterns.add("-**/*.min.js");
     patterns.add("-**/*-min.js");
+
+    // exclude `node_modules` and `bower_components`
+    patterns.add("-**/node_modules");
+    patterns.add("-**/bower_components");
 
     String base = LGTM_SRC.toString().replace('\\', '/');
     // process `$LGTM_INDEX_FILTERS`
@@ -426,21 +447,151 @@ public class AutoBuild {
     return true;
   }
 
+  /**
+   * Returns whether the autobuilder has seen code.
+   * This is overridden in tests.
+   */
+  protected boolean hasSeenCode() {
+    return seenCode;
+  }
+
   /** Perform extraction. */
   public int run() throws IOException {
-    startThreadPool();
-    try {
-      extractSource();
-      extractExterns();
-      extractXml();
-    } finally {
-      shutdownThreadPool();
-    }
-    if (!seenCode) {
-      warn("No JavaScript or TypeScript code found.");
-      return -1;
-    }
+      startThreadPool();
+      try {
+        CompletableFuture<?> sourceFuture = extractSource();
+        sourceFuture.join(); // wait for source extraction to complete
+        if (hasSeenCode()) { // don't bother with the externs if no code was seen
+          extractExterns();
+        }
+        extractXml();
+      } catch (OutOfMemoryError oom) {
+        System.err.println("Out of memory while extracting the project.");
+        return 137; // the CodeQL CLI will interpret this as an out-of-memory error
+        // purpusely not doing anything else (printing stack, etc.), as the JVM
+        // basically guarantees nothing after an OOM
+      } catch (TypeScriptWrapperOOMError oom) {
+        System.err.println("Out of memory while extracting the project.");
+        System.err.println(oom.getMessage());
+        oom.printStackTrace(System.err);
+        return 137;
+      } catch (RuntimeException | IOException e) {
+        writeDiagnostics("Internal error: " + e, JSDiagnosticKind.INTERNAL_ERROR);
+        e.printStackTrace(System.err);
+        return 1;
+      } finally {
+        shutdownThreadPool();
+        diagnosticsToClose.forEach(DiagnosticWriter::close);
+      }
+
+      if (!hasSeenCode()) {
+        if (seenFiles) {
+          warn("Only found JavaScript or TypeScript files that were empty or contained syntax errors.");
+        } else {
+          warn("No JavaScript or TypeScript code found.");
+        }
+        // ensuring that the finalize steps detects that no code was seen.
+        Path srcFolder = Paths.get(EnvironmentVariables.getWipDatabase(), "src");
+        try {
+          // Non-recursive delete because "src/" should be empty.
+          FileUtil8.delete(srcFolder);
+        } catch (NoSuchFileException e) {
+          Exceptions.ignore(e, "the directory did not exist");
+        } catch (DirectoryNotEmptyException e) {
+          Exceptions.ignore(e, "just leave the directory if it is not empty");
+        }
+        return 0;
+      }
     return 0;
+  }
+
+  /**
+   * A kind of error that can happen during extraction of JavaScript or TypeScript
+   * code.
+   * For use with the {@link #writeDiagnostics(String, JSDiagnosticKind)} method.
+   */
+  public static enum JSDiagnosticKind {
+    PARSE_ERROR("parse-error", "Could not process some files due to syntax errors", DiagnosticLevel.Warning),
+    INTERNAL_ERROR("internal-error", "Internal error", DiagnosticLevel.Debug);
+
+    private final String id;
+    private final String name;
+    private final DiagnosticLevel level;
+
+    private JSDiagnosticKind(String id, String name, DiagnosticLevel level) {
+      this.id = id;
+      this.name = name;
+      this.level = level;
+    }
+
+    public String getId() {
+      return id;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public DiagnosticLevel getLevel() {
+      return level;
+    }
+  }
+
+  private AtomicInteger diagnosticCount = new AtomicInteger(0);
+  private List<DiagnosticWriter> diagnosticsToClose = Collections.synchronizedList(new ArrayList<>());
+  private ThreadLocal<DiagnosticWriter> diagnostics = new ThreadLocal<DiagnosticWriter>(){
+        @Override protected DiagnosticWriter initialValue() {
+            DiagnosticWriter result = initDiagnosticsWriter(diagnosticCount.incrementAndGet());
+            diagnosticsToClose.add(result);
+            return result;
+        }
+  };
+
+  /**
+   * Persist a diagnostic message to a file in the diagnostics directory.
+   * See {@link JSDiagnosticKind} for the kinds of errors that can be reported,
+   * and see
+   * {@link DiagnosticWriter} for more details.
+   */
+  public void writeDiagnostics(String message, JSDiagnosticKind error) throws IOException {
+    writeDiagnostics(message, error, null);
+  }
+
+
+  /**
+   * Persist a diagnostic message with a location to a file in the diagnostics directory.
+   * See {@link JSDiagnosticKind} for the kinds of errors that can be reported,
+   * and see
+   * {@link DiagnosticWriter} for more details.
+   */
+  public void writeDiagnostics(String message, JSDiagnosticKind error, DiagnosticLocation location) throws IOException {
+    if (diagnostics.get() == null) {
+      warn("No diagnostics directory, so not writing diagnostic: " + message);
+      return;
+    }
+
+    // DiagnosticLevel level, String extractorName, String sourceId, String sourceName, String markdown
+    diagnostics.get().writeMarkdown(error.getLevel(), "javascript", "js/" + error.getId(), error.getName(),
+        message, location);
+  }
+
+  private DiagnosticWriter initDiagnosticsWriter(int count) {
+    String diagnosticsDir = System.getenv("CODEQL_EXTRACTOR_JAVASCRIPT_DIAGNOSTIC_DIR");
+
+    if (diagnosticsDir != null) {
+      File diagnosticsDirFile = new File(diagnosticsDir);
+      if (!diagnosticsDirFile.isDirectory()) {
+        warn("Diagnostics directory " + diagnosticsDir + " does not exist");
+      } else {
+        File diagnosticsFile = new File(diagnosticsDirFile, "autobuilder-" + count + ".jsonl");
+        try {
+          return new DiagnosticWriter(diagnosticsFile);
+        } catch (FileNotFoundException e) {
+          warn("Failed to open diagnostics file " + diagnosticsFile);
+        }
+      }
+    }
+    return null;
   }
 
   private void startThreadPool() {
@@ -478,14 +629,13 @@ public class AutoBuild {
           SEMMLE_DIST.resolve(".cache").resolve("trap-cache").resolve("javascript");
       if (Files.isDirectory(trapCachePath)) {
         trapCache =
-            new DefaultTrapCache(trapCachePath.toString(), null, Main.EXTRACTOR_VERSION) {
+            new DefaultTrapCache(trapCachePath.toString(), null, Main.EXTRACTOR_VERSION, false) {
               boolean warnedAboutCacheMiss = false;
 
               @Override
               public File lookup(String source, ExtractorConfig config, FileType type) {
                 File f = super.lookup(source, config, type);
-                // only return `f` if it exists; this has the effect of making the cache read-only
-                if (f.exists()) return f;
+                if (f != null) return f;
                 // warn on first failed lookup
                 if (!warnedAboutCacheMiss) {
                   warn("Trap cache lookup for externs failed.");
@@ -505,7 +655,7 @@ public class AutoBuild {
           @Override
           public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
               throws IOException {
-            if (".js".equals(FileUtil.extension(file.toString()))) extract(extractor, file, null);
+            if (".js".equals(FileUtil.extension(file.toString()))) extract(extractor, file, true);
             return super.visitFile(file, attrs);
           }
         };
@@ -513,75 +663,395 @@ public class AutoBuild {
     Files.walkFileTree(externs, visitor);
   }
 
+  /**
+   * Compares files in the order they should be extracted.
+   * <p>
+   * The ordering of tsconfig.json files can affect extraction results. Since we
+   * extract any given source file at most once, and a source file can be included from
+   * multiple tsconfig.json files, we sometimes have to choose arbitrarily which tsconfig.json
+   * to use for a given file (which is based on this ordering).
+   * <p>
+   * We sort them to help ensure reproducible extraction. Additionally, deeply nested files are
+   * preferred over shallow ones to help ensure files are extracted with the most specific
+   * tsconfig.json file.
+   */
+  public static final Comparator<Path> PATH_ORDERING = new Comparator<Path>() {
+    public int compare(Path f1, Path f2) {
+      if (f1.getNameCount() != f2.getNameCount()) {
+        return f2.getNameCount() - f1.getNameCount();
+      }
+      return f1.compareTo(f2);
+    }
+  };
+
+  /**
+   * Like {@link #PATH_ORDERING} but for {@link File} objects.
+   */
+  public static final Comparator<File> FILE_ORDERING = new Comparator<File>() {
+    public int compare(File f1, File f2) {
+      return PATH_ORDERING.compare(f1.toPath(), f2.toPath());
+    }
+  };
+
+  public class FileExtractors {
+    FileExtractor defaultExtractor;
+    Map<String, FileExtractor> customExtractors = new LinkedHashMap<>();
+
+    FileExtractors(FileExtractor defaultExtractor) {
+      this.defaultExtractor = defaultExtractor;
+    }
+
+    public FileExtractor forFile(Path f) {
+      return customExtractors.getOrDefault(FileUtil.extension(f), defaultExtractor);
+    }
+
+    public FileType fileType(Path f) {
+      return forFile(f).getFileType(f.toFile());
+    }
+  }
+
   /** Extract all supported candidate files that pass the filters. */
-  private void extractSource() throws IOException {
+  private CompletableFuture<?> extractSource() throws IOException {
     // default extractor
     FileExtractor defaultExtractor =
         new FileExtractor(mkExtractorConfig(), outputConfig, trapCache);
 
+    FileExtractors extractors = new FileExtractors(defaultExtractor);
+
     // custom extractor for explicitly specified file types
-    Map<String, FileExtractor> customExtractors = new LinkedHashMap<>();
     for (Map.Entry<String, FileType> spec : fileTypes.entrySet()) {
       String extension = spec.getKey();
       String fileType = spec.getValue().name();
       ExtractorConfig extractorConfig = mkExtractorConfig().withFileType(fileType);
-      customExtractors.put(extension, new FileExtractor(extractorConfig, outputConfig, trapCache));
+      extractors.customExtractors.put(extension, new FileExtractor(extractorConfig, outputConfig, trapCache));
     }
 
     Set<Path> filesToExtract = new LinkedHashSet<>();
     List<Path> tsconfigFiles = new ArrayList<>();
     findFilesToExtract(defaultExtractor, filesToExtract, tsconfigFiles);
 
+    tsconfigFiles = tsconfigFiles.stream()
+         .sorted(PATH_ORDERING)
+         .collect(Collectors.toList());
+
+    filesToExtract = filesToExtract.stream()
+        .sorted(PATH_ORDERING)
+        .collect(Collectors.toCollection(() -> new LinkedHashSet<>()));
+
+    DependencyInstallationResult dependencyInstallationResult = DependencyInstallationResult.empty;
+    if (!tsconfigFiles.isEmpty()) {
+      dependencyInstallationResult = this.preparePackagesAndDependencies(filesToExtract);
+    }
+    Set<Path> extractedFiles = new LinkedHashSet<>();
+
+    // Extract HTML files as they may contain TypeScript
+    CompletableFuture<?> htmlFuture = extractFiles(
+        filesToExtract, extractedFiles, extractors,
+        f -> extractors.fileType(f) == FileType.HTML);
+
+    htmlFuture.join(); // Wait for HTML extraction to be finished.
+
     // extract TypeScript projects and files
-    Set<Path> extractedFiles = extractTypeScript(defaultExtractor, filesToExtract, tsconfigFiles);
+    extractTypeScript(filesToExtract, extractedFiles,
+              extractors, tsconfigFiles, dependencyInstallationResult);
+
+    boolean hasTypeScriptFiles = extractedFiles.size() > 0;
 
     // extract remaining files
+    return extractFiles(
+        filesToExtract, extractedFiles, extractors,
+        f -> !(hasTypeScriptFiles && isFileDerivedFromTypeScriptFile(f, extractedFiles)));
+  }
+
+  private CompletableFuture<?> extractFiles(
+      Set<Path> filesToExtract,
+      Set<Path> extractedFiles,
+      FileExtractors extractors,
+      Predicate<Path> shouldExtract) {
+
+    List<CompletableFuture<?>> futures = new ArrayList<>();
     for (Path f : filesToExtract) {
-      if (extractedFiles.add(f)) {
-        FileExtractor extractor = defaultExtractor;
-        if (!fileTypes.isEmpty()) {
-          String extension = FileUtil.extension(f);
-          if (customExtractors.containsKey(extension)) extractor = customExtractors.get(extension);
-        }
-        extract(extractor, f, null);
+      if (extractedFiles.contains(f))
+        continue;
+      if (!shouldExtract.test(f)) {
+        continue;
+      }
+      extractedFiles.add(f);
+      futures.add(extract(extractors.forFile(f), f, true));
+    }
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
+  }
+
+  /**
+   * Returns true if the given path is likely the output of compiling a TypeScript file
+   * which we have already extracted.
+   */
+  private boolean isFileDerivedFromTypeScriptFile(Path path, Set<Path> extractedFiles) {
+    String name = path.getFileName().toString();
+    if (!name.endsWith(".js"))
+      return false;
+    String stem = name.substring(0, name.length() - ".js".length());
+    for (String ext : FileType.TYPESCRIPT.getExtensions()) {
+      if (extractedFiles.contains(path.getParent().resolve(stem + ext))) {
+        return true;
       }
     }
+    return false;
+  }
+
+  /**
+   * Returns an existing file named <code>dir/stem.ext</code> where <code>.ext</code> is any
+   * of the given extensions, or <code>null</code> if no such file exists.
+   */
+  private static Path tryResolveWithExtensions(Path dir, String stem, Iterable<String> extensions) {
+    for (String ext : extensions) {
+      Path path = dir.resolve(stem + ext);
+      if (Files.exists(dir.resolve(path))) {
+        return path;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns an existing file named <code>dir/stem.ext</code> where <code>ext</code> is any TypeScript or JavaScript extension,
+   * or <code>null</code> if no such file exists.
+   */
+  private static Path tryResolveTypeScriptOrJavaScriptFile(Path dir, String stem) {
+    Path resolved = tryResolveWithExtensions(dir, stem, FileType.TYPESCRIPT.getExtensions());
+    if (resolved != null) return resolved;
+    return tryResolveWithExtensions(dir, stem, FileType.JS.getExtensions());
+  }
+
+  /**
+   * Gets a relative path from <code>from</code> to <code>to</code> provided
+   * the latter is contained in the former. Otherwise returns <code>null</code>.
+   * @return a path or null
+   */
+  public static Path tryRelativize(Path from, Path to) {
+    Path relative = from.relativize(to);
+    if (relative.startsWith("..") || relative.isAbsolute()) {
+      return null;
+    }
+    return relative;
+  }
+
+  /**
+   * Prepares <code>package.json</code> files in a virtual source root, and, if enabled,
+   * installs dependencies for use by the TypeScript type checker.
+   * <p>
+   * Some packages must be downloaded while others exist within the same repo ("monorepos")
+   * but are not in a location where TypeScript would look for it.
+   * <p>
+   * Downloaded packages are intalled under <code>SCRATCH_DIR</code>, in a mirrored directory hierarchy
+   * we call the "virtual source root".
+   * <p>
+   * Packages that exists within the repo are not downloaded. Since they are part of the main source tree,
+   * these packages are not mirrored under the virtual source root.
+   * Instead, an explicit package location mapping is passed to the TypeScript parser wrapper.
+   * <p>
+   * The TypeScript parser wrapper then overrides module resolution so packages can be found
+   * under the virtual source root and via that package location mapping.
+   */
+protected DependencyInstallationResult preparePackagesAndDependencies(Set<Path> filesToExtract) {
+    final Path sourceRoot = LGTM_SRC;
+
+    // Read all package.json files and index them by name.
+    Map<Path, PackageJson> packageJsonFiles = new LinkedHashMap<>();
+    Map<String, Path> packagesInRepo = new LinkedHashMap<>();
+    Map<String, Path> packageMainFile = new LinkedHashMap<>();
+    for (Path file : filesToExtract) {
+      if (file.getFileName().toString().equals("package.json")) {
+        try {
+          PackageJson packageJson = new Gson().fromJson(new WholeIO().read(file), PackageJson.class);
+          if (packageJson == null) {
+            continue;
+          }
+          file = file.toAbsolutePath();
+          if (tryRelativize(sourceRoot, file) == null) {
+            continue; // Ignore package.json files outside the source root.
+          }
+          packageJsonFiles.put(file, packageJson);
+
+          String name = packageJson.getName();
+          if (name != null) {
+            packagesInRepo.put(name, file);
+          }
+        } catch (JsonParseException e) {
+          System.err.println("Could not parse JSON file: " + file);
+          System.err.println(e);
+          // Continue without the malformed package.json file
+        }
+      }
+    }
+
+    // Guess the main file for each package.
+    packageJsonFiles.forEach(
+      (path, packageJson) -> {
+          Path relativePath = sourceRoot.relativize(path);
+          // For named packages, find the main file.
+          String name = packageJson.getName();
+          if (name != null) {
+            Path entryPoint = guessPackageMainFile(path, packageJson, FileType.TYPESCRIPT.getExtensions());
+            if (entryPoint == null) {
+              // Try a TypeScript-recognized JS extension instead
+              entryPoint = guessPackageMainFile(path, packageJson, Arrays.asList(".js", ".jsx"));
+            }
+            if (entryPoint != null) {
+              System.out.println(relativePath + ": Main file set to " + sourceRoot.relativize(entryPoint));
+              packageMainFile.put(name, entryPoint);
+            } else {
+              System.out.println(relativePath + ": Main file not found");
+            }
+          }
+        });
+
+    if (installDependencies) {
+      // Use more threads for dependency installation than for extraction, as this is mainly I/O bound and we want
+      // many concurrent HTTP requests.
+      ExecutorService installationThreadPool = Executors.newFixedThreadPool(50);
+      AsyncFetcher fetcher = new AsyncFetcher(installationThreadPool, err -> { System.err.println(err); });
+      try {
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+        packageJsonFiles.forEach((file, packageJson) -> {
+          Path virtualFile = virtualSourceRoot.toVirtualFile(file);
+          Path nodeModulesDir = virtualFile.getParent().resolve("node_modules");
+          futures.add(new DependencyResolver(fetcher, packagesInRepo.keySet()).installDependencies(packageJson, nodeModulesDir));
+        });
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+      } finally {
+        installationThreadPool.shutdown();
+        try {
+          installationThreadPool.awaitTermination(1, TimeUnit.HOURS);
+        } catch (InterruptedException e) {
+          Exceptions.ignore(e, "Awaiting termination is not essential.");
+        }
+      }
+    }
+
+    return new DependencyInstallationResult(packageMainFile, packagesInRepo);
+  }
+
+  /**
+   * Attempts to find a TypeScript file that acts as the main entry point to the
+   * given package - that is, the file you get when importing the package by name
+   * without any path suffix.
+   */
+  private Path guessPackageMainFile(Path packageJsonFile, PackageJson packageJson, Iterable<String> extensions) {
+    Path packageDir = packageJsonFile.getParent();
+
+    // Try <package_dir>/index.ts.
+    Path resolved = tryResolveWithExtensions(packageDir, "index", extensions);
+    if (resolved != null) {
+      return resolved;
+    }
+
+    // Get the "main" property from the package.json
+    // This usually refers to the compiled output, such as `./out/foo.js` but may hint as to
+    // the name of main file ("foo" in this case).
+    String mainStr = packageJson.getMain();
+
+    // Look for source files `./src` if it exists
+    Path sourceDir = packageDir.resolve("src");
+    if (Files.isDirectory(sourceDir)) {
+      // Try `src/index.ts`
+      resolved = tryResolveTypeScriptOrJavaScriptFile(sourceDir, "index");
+      if (resolved != null) {
+        return resolved;
+      }
+
+      // If "main" was defined, try to map it to a file in `src`.
+      // For example `out/dist/foo.bundle.js` might be mapped back to `src/foo.ts`.
+      if (mainStr != null) {
+        Path candidatePath = Paths.get(mainStr);
+
+        // Strip off prefix directories that don't exist under `src/`, such as `out` and `dist`.
+        while (candidatePath.getNameCount() > 1 && !Files.isDirectory(sourceDir.resolve(candidatePath.getParent()))) {
+          candidatePath = candidatePath.subpath(1, candidatePath.getNameCount());
+        }
+
+        // Strip off extensions until a file can be found
+        while (true) {
+          resolved = tryResolveWithExtensions(sourceDir, candidatePath.toString(), extensions);
+          if (resolved != null) {
+            return resolved;
+          }
+          Path withoutExt = candidatePath.resolveSibling(FileUtil.stripExtension(candidatePath.getFileName().toString()));
+          if (withoutExt.equals(candidatePath)) break; // No more extensions to strip
+          candidatePath = withoutExt;
+        }
+      }
+    }
+
+    // Try to resolve main as a sibling of the package.json file, such as "./main.js" -> "./main.ts".
+    if (mainStr != null) {
+      Path mainPath = Paths.get(mainStr);
+      String withoutExt = FileUtil.stripExtension(mainPath.getFileName().toString());
+      resolved = tryResolveWithExtensions(packageDir, withoutExt, extensions);
+      if (resolved != null) {
+        return resolved;
+      }
+    }
+
+    return null;
   }
 
   private ExtractorConfig mkExtractorConfig() {
     ExtractorConfig config = new ExtractorConfig(true);
     config = config.withSourceType(getSourceType());
     config = config.withTypeScriptMode(typeScriptMode);
+    config = config.withVirtualSourceRoot(virtualSourceRoot);
     if (defaultEncoding != null) config = config.withDefaultEncoding(defaultEncoding);
     return config;
   }
 
   private Set<Path> extractTypeScript(
-      FileExtractor extractor, Set<Path> files, List<Path> tsconfig) {
-    Set<Path> extractedFiles = new LinkedHashSet<>();
-
+      Set<Path> files,
+      Set<Path> extractedFiles,
+      FileExtractors extractors,
+      List<Path> tsconfig,
+      DependencyInstallationResult deps) {
     if (hasTypeScriptFiles(files) || !tsconfig.isEmpty()) {
-      ExtractorState extractorState = new ExtractorState();
-      TypeScriptParser tsParser = extractorState.getTypeScriptParser();
-      verifyTypeScriptInstallation(extractorState);
+      TypeScriptParser tsParser = state.getTypeScriptParser();
+      verifyTypeScriptInstallation(state);
+
+      // Collect all files included in a tsconfig.json inclusion pattern.
+      // If a given file is referenced by multiple tsconfig files, we prefer to extract it using
+      // one that includes it rather than just references it.
+      Set<File> explicitlyIncludedFiles = new LinkedHashSet<>();
+      if (tsconfig.size() > 1) { // No prioritization needed if there's only one tsconfig.
+        for (Path projectPath : tsconfig) {
+          explicitlyIncludedFiles.addAll(tsParser.getOwnFiles(projectPath.toFile(), deps, virtualSourceRoot));
+        }
+      }
 
       // Extract TypeScript projects
       for (Path projectPath : tsconfig) {
         File projectFile = projectPath.toFile();
         long start = logBeginProcess("Opening project " + projectFile);
-        ParsedProject project = tsParser.openProject(projectFile);
+        ParsedProject project = tsParser.openProject(projectFile, deps, virtualSourceRoot);
         logEndProcess(start, "Done opening project " + projectFile);
         // Extract all files belonging to this project which are also matched
         // by our include/exclude filters.
-        List<File> typeScriptFiles = new ArrayList<File>();
-        for (File sourceFile : project.getSourceFiles()) {
+        List<Path> typeScriptFiles = new ArrayList<Path>();
+        for (File sourceFile : project.getAllFiles()) {
           Path sourcePath = sourceFile.toPath();
-          if (!files.contains(normalizePath(sourcePath))) continue;
+          Path normalizedFile = normalizePath(sourcePath);
+          if (!files.contains(normalizedFile) && !state.getSnippets().containsKey(normalizedFile)) {
+            continue;
+          }
+          if (!project.getOwnFiles().contains(sourceFile) && explicitlyIncludedFiles.contains(sourceFile)) continue;
+          if (extractors.fileType(sourcePath) != FileType.TYPESCRIPT) {
+            // For the time being, skip non-TypeScript files, even if the TypeScript
+            // compiler can parse them for us.
+            continue;
+          }
           if (!extractedFiles.contains(sourcePath)) {
-            typeScriptFiles.add(sourcePath.toFile());
+            typeScriptFiles.add(sourcePath);
           }
         }
-        extractTypeScriptFiles(typeScriptFiles, extractedFiles, extractor, extractorState);
+        typeScriptFiles.sort(PATH_ORDERING);
+        extractTypeScriptFiles(typeScriptFiles, extractedFiles, extractors);
         tsParser.closeProject(projectFile);
       }
 
@@ -592,15 +1062,15 @@ public class AutoBuild {
       }
 
       // Extract remaining TypeScript files.
-      List<File> remainingTypeScriptFiles = new ArrayList<File>();
+      List<Path> remainingTypeScriptFiles = new ArrayList<>();
       for (Path f : files) {
         if (!extractedFiles.contains(f)
-            && FileType.forFileExtension(f.toFile()) == FileType.TYPESCRIPT) {
-          remainingTypeScriptFiles.add(f.toFile());
+            && extractors.fileType(f) == FileType.TYPESCRIPT) {
+          remainingTypeScriptFiles.add(f);
         }
       }
       if (!remainingTypeScriptFiles.isEmpty()) {
-        extractTypeScriptFiles(remainingTypeScriptFiles, extractedFiles, extractor, extractorState);
+        extractTypeScriptFiles(remainingTypeScriptFiles, extractedFiles, extractors);
       }
 
       // The TypeScript compiler instance is no longer needed.
@@ -636,7 +1106,7 @@ public class AutoBuild {
           @Override
           public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
               throws IOException {
-            if (attrs.isSymbolicLink()) return FileVisitResult.SKIP_SUBTREE;
+            if (!attrs.isRegularFile() && !attrs.isDirectory()) return FileVisitResult.SKIP_SUBTREE;
 
             if (!file.equals(currentRoot[0]) && excludes.contains(file))
               return FileVisitResult.SKIP_SUBTREE;
@@ -653,18 +1123,31 @@ public class AutoBuild {
             // extract TypeScript projects from 'tsconfig.json'
             if (typeScriptMode == TypeScriptMode.FULL
                 && file.getFileName().endsWith("tsconfig.json")
-                && !excludes.contains(file)) {
+                && !excludes.contains(file)
+                && isFileIncluded(file)) {
               tsconfigFiles.add(file);
             }
 
             return super.visitFile(file, attrs);
           }
 
+          /**
+           * Returns {@code true} if {@code dir} is a hidden directory
+           * that should be skipped by default.
+           */
+          private boolean isSkippedHiddenDirectory(Path dir) {
+            // Allow .github folders as they may contain YAML files relevant to GitHub repositories.
+            return dir.toFile().isHidden() && !dir.getFileName().toString().equals(".github");
+          }
+
           @Override
           public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs)
               throws IOException {
-            if (!dir.equals(currentRoot[0]) && (excludes.contains(dir) || dir.toFile().isHidden()))
+            if (!dir.equals(currentRoot[0]) && (excludes.contains(dir) || isSkippedHiddenDirectory(dir)))
               return FileVisitResult.SKIP_SUBTREE;
+            if (Files.exists(dir.resolve("codeql-database.yml"))) {
+              return FileVisitResult.SKIP_SUBTREE;
+            }
             return super.preVisitDirectory(dir, attrs);
           }
         };
@@ -680,15 +1163,17 @@ public class AutoBuild {
   }
 
   public void extractTypeScriptFiles(
-      List<File> files,
+      List<Path> files,
       Set<Path> extractedFiles,
-      FileExtractor extractor,
-      ExtractorState extractorState) {
-    extractorState.getTypeScriptParser().prepareFiles(files);
-    for (File f : files) {
-      Path path = f.toPath();
+      FileExtractors extractors) {
+    List<File> list = files
+        .stream()
+        .sorted(PATH_ORDERING)
+        .map(p -> p.toFile()).collect(Collectors.toList());
+    state.getTypeScriptParser().prepareFiles(list);
+    for (Path path : files) {
       extractedFiles.add(path);
-      extract(extractor, f.toPath(), extractorState);
+      extract(extractors.forFile(path), path, false);
     }
   }
 
@@ -697,7 +1182,10 @@ public class AutoBuild {
   }
 
   private void extractTypeTable(Path fileHandle, TypeTable table) {
-    TrapWriter trapWriter = outputConfig.getTrapWriterFactory().mkTrapWriter(fileHandle.toFile());
+    TrapWriter trapWriter =
+        outputConfig
+            .getTrapWriterFactory()
+            .mkTrapWriter(new File(fileHandle.toString() + ".codeql-typescript-typetable"));
     try {
       new TypeExtractor(trapWriter, table).extract();
     } finally {
@@ -728,10 +1216,13 @@ public class AutoBuild {
    * <p>If the state is {@code null}, the extraction job will be submitted to the {@link
    * #threadPool}, otherwise extraction will happen on the main thread.
    */
-  protected void extract(FileExtractor extractor, Path file, ExtractorState state) {
-    if (state == null && threadPool != null)
-      threadPool.submit(() -> doExtract(extractor, file, state));
-    else doExtract(extractor, file, state);
+  protected CompletableFuture<?> extract(FileExtractor extractor, Path file, boolean concurrent) {
+    if (concurrent && threadPool != null) {
+      return CompletableFuture.runAsync(() -> doExtract(extractor, file, state), threadPool);
+    } else {
+      doExtract(extractor, file, state);
+      return CompletableFuture.completedFuture(null);
+    }
   }
 
   private void doExtract(FileExtractor extractor, Path file, ExtractorState state) {
@@ -740,16 +1231,56 @@ public class AutoBuild {
       warn("Skipping " + file + ", which does not exist.");
       return;
     }
+    long fileSize = f.length();
+    if (fileSize > 1_000_000L * this.maximumFileSizeInMegabytes) {
+      warn("Skipping " + file + " because it is too large (" + StringUtil.printFloat(fileSize / 1_000_000.0) + " MB). The limit is " + this.maximumFileSizeInMegabytes + " MB.");
+      return;
+    }
 
     try {
       long start = logBeginProcess("Extracting " + file);
-      Integer loc = extractor.extract(f, state);
-      if (!extractor.getConfig().isExterns() && (loc == null || loc != 0))
-        seenCode = true;
+      ParseResultInfo loc = extractor.extract(f, state);
+      if (!extractor.getConfig().isExterns() && (loc == null || loc.getLinesOfCode() != 0)) seenCode = true;
+      if (!extractor.getConfig().isExterns()) seenFiles = true;
+      List<ParseError> errors = loc == null ? Collections.emptyList() : loc.getParseErrors();
+      for (ParseError err : errors) {
+        String msg = "A parse error occurred: " + StringUtil.quoteWithBackticks(err.getMessage().trim())
+            + ".";
+
+        Optional<DiagnosticLocation> diagLoc = Optional.empty();
+        if (file.startsWith(LGTM_SRC)) {
+          diagLoc = DiagnosticLocation.builder()
+            .setFile(file.subpath(LGTM_SRC.getNameCount(), file.getNameCount()).toString()) // file, relative to the source root
+            .setStartLine(err.getPosition().getLine())
+            .setStartColumn(err.getPosition().getColumn() + 1) // convert from 0-based to 1-based
+            .setEndLine(err.getPosition().getLine())
+            .setEndColumn(err.getPosition().getColumn() + 1) // convert from 0-based to 1-based
+            .build()
+            .getOk();
+    }
+    if (diagLoc.isPresent()) {
+      msg += " Check the syntax of the file. If the file is invalid, correct the error or "
+          + "[exclude](https://docs.github.com/en/code-security/code-scanning/automatically-scanning-"
+          + "your-code-for-vulnerabilities-and-errors/customizing-code-scanning) the file from analysis.";
+      writeDiagnostics(msg, JSDiagnosticKind.PARSE_ERROR, diagLoc.get());
+    } else {
+      msg += " The affected file is not located within the code being analyzed."
+          + (Env.systemEnv().isActions() ? " Please see the workflow run logs for more information." : "");
+      writeDiagnostics(msg, JSDiagnosticKind.PARSE_ERROR);
+    }
+      }
       logEndProcess(start, "Done extracting " + file);
+    } catch (OutOfMemoryError oom) {
+      System.err.println("Out of memory while extracting a file.");
+      System.exit(137); // caught by the CodeQL CLI
     } catch (Throwable t) {
       System.err.println("Exception while extracting " + file + ".");
       t.printStackTrace(System.err);
+      try {
+        writeDiagnostics("Internal error: " + t, JSDiagnosticKind.INTERNAL_ERROR);
+      } catch (IOException ignored) {
+        Exceptions.ignore(ignored, "we are already crashing");
+      }
       System.exit(1);
     }
   }
@@ -776,14 +1307,31 @@ public class AutoBuild {
   }
 
   protected void extractXml() throws IOException {
-    if (xmlExtensions.isEmpty())
-      return;
+    if (xmlExtensions.isEmpty()) return;
     List<String> cmd = new ArrayList<>();
-    cmd.add("odasa");
-    cmd.add("index");
-    cmd.add("--xml");
-    cmd.add("--extensions");
-    cmd.addAll(xmlExtensions);
+    if (EnvironmentVariables.getCodeQLDist() == null) {
+      // Use the legacy odasa XML extractor
+      cmd.add("odasa");
+      cmd.add("index");
+      cmd.add("--xml");
+      cmd.add("--extensions");
+      cmd.addAll(xmlExtensions);
+    } else {
+      String command = Env.getOS() == OS.WINDOWS ? "codeql.exe" : "codeql";
+      cmd.add(Paths.get(EnvironmentVariables.getCodeQLDist(), command).toString());
+      cmd.add("database");
+      cmd.add("index-files");
+      cmd.add("--language");
+      cmd.add("xml");
+      cmd.add("--size-limit");
+      cmd.add("10m");
+      for (String extension : xmlExtensions) {
+        cmd.add("--include-extension");
+        cmd.add(extension);
+      }
+      cmd.add("--");
+      cmd.add(EnvironmentVariables.getWipDatabase());
+    }
     ProcessBuilder pb = new ProcessBuilder(cmd);
     try {
       pb.redirectError(Redirect.INHERIT);

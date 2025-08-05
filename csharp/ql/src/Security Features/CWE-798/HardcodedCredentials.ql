@@ -3,7 +3,8 @@
  * @description Credentials are hard coded in the source code of the application.
  * @kind path-problem
  * @problem.severity error
- * @precision high
+ * @security-severity 9.8
+ * @precision medium
  * @id cs/hardcoded-credentials
  * @tags security
  *       external/cwe/cwe-259
@@ -12,16 +13,16 @@
  */
 
 import csharp
-import semmle.code.csharp.security.dataflow.HardcodedCredentials::HardcodedCredentials
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.HardcodedCredentialsQuery
+import HardcodedCredentials::PathGraph
 
 from
-  TaintTrackingConfiguration c, Source source, Sink sink, DataFlow::PathNode sourcePath,
-  DataFlow::PathNode sinkPath, string value
+  Source source, Sink sink, HardcodedCredentials::PathNode sourcePath,
+  HardcodedCredentials::PathNode sinkPath, string value
 where
   source = sourcePath.getNode() and
   sink = sinkPath.getNode() and
-  c.hasFlowPath(sourcePath, sinkPath) and
+  HardcodedCredentials::flowPath(sourcePath, sinkPath) and
   // Print the source value if it's available
   if exists(source.asExpr().getValue())
   then value = "The hard-coded value \"" + source.asExpr().getValue() + "\""

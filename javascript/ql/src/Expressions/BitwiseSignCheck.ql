@@ -6,7 +6,7 @@
  * @id js/bitwise-sign-check
  * @tags reliability
  *       correctness
- * @precision medium
+ * @precision low
  */
 
 import javascript
@@ -53,4 +53,4 @@ where
   not e instanceof EqualityTest and
   e.getRightOperand().getIntValue() = 0 and
   not acceptableSignCheck(b)
-select e, "Sign check of a bitwise operation"
+select e, "Potentially unsafe sign check of a bitwise operation."

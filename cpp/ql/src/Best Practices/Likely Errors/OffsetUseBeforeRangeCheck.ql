@@ -5,6 +5,7 @@
  * @kind problem
  * @id cpp/offset-use-before-range-check
  * @problem.severity warning
+ * @security-severity 8.2
  * @precision medium
  * @tags reliability
  *       security
@@ -14,6 +15,7 @@
 
 import cpp
 
+pragma[nomagic]
 predicate beforeArrayAccess(Variable v, ArrayExpr access, Expr before) {
   exists(LogicalAndExpr andexpr |
     access.getArrayOffset() = v.getAnAccess() and
@@ -22,6 +24,7 @@ predicate beforeArrayAccess(Variable v, ArrayExpr access, Expr before) {
   )
 }
 
+pragma[nomagic]
 predicate afterArrayAccess(Variable v, ArrayExpr access, Expr after) {
   exists(LogicalAndExpr andexpr |
     access.getArrayOffset() = v.getAnAccess() and

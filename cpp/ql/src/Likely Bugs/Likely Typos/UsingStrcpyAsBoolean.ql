@@ -7,13 +7,21 @@
  * @problem.severity error
  * @precision high
  * @id cpp/string-copy-return-value-as-boolean
- * @tags external/microsoft/C6324
- *       correctness
+ * @tags correctness
  */
 
 import cpp
 import semmle.code.cpp.models.implementations.Strcpy
-import semmle.code.cpp.dataflow.DataFlow
+import semmle.code.cpp.ir.dataflow.DataFlow
+
+/**
+ * A string copy function that returns a string, rather than an error code (for
+ * example, `strcpy` returns a string, whereas `strcpy_s` returns an error
+ * code).
+ */
+class InterestingStrcpyFunction extends StrcpyFunction {
+  InterestingStrcpyFunction() { this.getType().getUnspecifiedType() instanceof PointerType }
+}
 
 predicate isBoolean(Expr e1) {
   exists(Type t1 |
@@ -23,14 +31,14 @@ predicate isBoolean(Expr e1) {
 }
 
 predicate isStringCopyCastedAsBoolean(FunctionCall func, Expr expr1, string msg) {
-  DataFlow::localFlow(DataFlow::exprNode(func), DataFlow::exprNode(expr1)) and
+  DataFlow::localExprFlow(func, expr1) and
   isBoolean(expr1.getConversion*()) and
-  func.getTarget() instanceof StrcpyFunction and
+  func.getTarget() instanceof InterestingStrcpyFunction and
   msg = "Return value of " + func.getTarget().getName() + " used as a Boolean."
 }
 
 predicate isStringCopyUsedInLogicalOperationOrCondition(FunctionCall func, Expr expr1, string msg) {
-  func.getTarget() instanceof StrcpyFunction and
+  func.getTarget() instanceof InterestingStrcpyFunction and
   (
     (
       // it is being used in an equality or logical operation
@@ -63,17 +71,16 @@ predicate isStringCopyUsedInLogicalOperationOrCondition(FunctionCall func, Expr 
         func = ce.getCondition()
       )
     ) and
-    msg = "Return value of " + func.getTarget().getName() +
+    msg =
+      "Return value of " + func.getTarget().getName() +
         " used directly in a conditional expression."
   )
 }
 
 from FunctionCall func, Expr expr1, string msg
 where
-  (
-    isStringCopyCastedAsBoolean(func, expr1, msg) and
-    not isStringCopyUsedInLogicalOperationOrCondition(func, _, _)
-  )
+  isStringCopyCastedAsBoolean(func, expr1, msg) and
+  not isStringCopyUsedInLogicalOperationOrCondition(func, _, _)
   or
   isStringCopyUsedInLogicalOperationOrCondition(func, expr1, msg)
 select expr1, msg

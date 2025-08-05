@@ -105,4 +105,20 @@ public class Test<V> {
      */
     SomeClass(int i, int j) {}
   }
+
+  /**
+   * @param <T> exists
+   * @param T wrong syntax
+   * @param <X> does not exist
+   */
+  class GenericClass<T> {}
+
+  /**
+   * @param <T> exists
+   * @param T wrong syntax
+   * @param <X> does not exist
+   */
+  interface GenericInterface<T> {}
+
+  // Diagnostic Matches: Incomplete inheritance relation for type java.lang.Object and supertype none
 }

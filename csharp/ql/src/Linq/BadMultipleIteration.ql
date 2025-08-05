@@ -12,7 +12,7 @@
  */
 
 import csharp
-import Helpers
+import Linq.Helpers
 
 /** The enumerable sequence is likely not to be repeatable. */
 predicate likelyNonRepeatableSequence(IEnumerableSequence seq) {
@@ -59,6 +59,5 @@ where
   va = seq.getAnAccess() and
   potentiallyConsumingAccess(va) and
   count(VariableAccess x | x = seq.getAnAccess() and potentiallyConsumingAccess(x)) > 1
-select seq,
-  "This enumerable sequence may not be repeatable, but is potentially consumed multiple times $@.",
-  va, "here"
+select seq, "This enumerable sequence may not be repeatable, but $@.", va,
+  "it is potentially consumed multiple times"

@@ -10,24 +10,30 @@
  *       language-features
  *       external/jsf
  */
+
 import cpp
 
 predicate containsArray(Type t) {
   t instanceof ArrayType
-  or containsArray(t.(PointerType).getBaseType())
-  or containsArray(t.(SpecifiedType).getBaseType())
-  or (containsArray(t.getUnderlyingType()) and not exists(TypedefType allowed | allowed = t |
-    allowed.hasGlobalName("jmp_buf") or
-    allowed.hasGlobalName("va_list")
-  ))
+  or
+  containsArray(t.(PointerType).getBaseType())
+  or
+  containsArray(t.(SpecifiedType).getBaseType())
+  or
+  containsArray(t.getUnderlyingType()) and
+  not exists(TypedefType allowed | allowed = t |
+    allowed.hasGlobalOrStdName("jmp_buf") or
+    allowed.hasGlobalOrStdName("va_list")
+  )
 }
 
-predicate functionAPIViolation(MemberFunction f) {
+predicate functionApiViolation(MemberFunction f) {
   f.isPublic() and
   containsArray(f.getAParameter().getType())
 }
 
 from MemberFunction m
-where functionAPIViolation(m)
-  and not m.getDeclaringType() instanceof Struct
+where
+  functionApiViolation(m) and
+  not m.getDeclaringType() instanceof Struct
 select m, "Raw arrays should not be used in interfaces. A container class should be used instead."

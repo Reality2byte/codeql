@@ -12,9 +12,8 @@
  */
 
 import java
-import semmle.code.java.JDKAnnotations
 
-predicate isSerializable(RefType t) { exists(TypeSerializable ts | ts = t.getASupertype*()) }
+predicate isSerializable(RefType t) { t.getAnAncestor() instanceof TypeSerializable }
 
 predicate withinStaticContext(NestedClass c) {
   c.isStatic() or
@@ -78,7 +77,7 @@ predicate exceptions(NestedClass inner) {
 
 from NestedClass inner, Class outer, string advice
 where
-  inner.fromSource() and
+  inner.getFile().isJavaSourceFile() and
   isSerializable(inner) and
   outer = enclosingInstanceType+(inner) and
   not isSerializable(outer) and

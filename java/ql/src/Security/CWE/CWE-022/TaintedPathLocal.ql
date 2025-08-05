@@ -3,6 +3,7 @@
  * @description Accessing paths influenced by users can allow an attacker to access unexpected resources.
  * @kind path-problem
  * @problem.severity recommendation
+ * @security-severity 7.5
  * @precision medium
  * @id java/path-injection-local
  * @tags security
@@ -13,25 +14,25 @@
  */
 
 import java
-import semmle.code.java.dataflow.FlowSources
-import PathsCommon
-import DataFlow::PathGraph
+import semmle.code.java.security.PathCreation
+import semmle.code.java.security.TaintedPathQuery
+import TaintedPathLocalFlow::PathGraph
 
-class TaintedPathLocalConfig extends TaintTracking::Configuration {
-  TaintedPathLocalConfig() { this = "TaintedPathLocalConfig" }
-
-  override predicate isSource(DataFlow::Node source) { source instanceof LocalUserInput }
-
-  override predicate isSink(DataFlow::Node sink) { sink.asExpr() = any(PathCreation p).getInput() }
+/**
+ * Gets the data-flow node at which to report a path ending at `sink`.
+ *
+ * Previously this query flagged alerts exclusively at `PathCreation` sites,
+ * so to avoid perturbing existing alerts, where a `PathCreation` exists we
+ * continue to report there; otherwise we report directly at `sink`.
+ */
+DataFlow::Node getReportingNode(DataFlow::Node sink) {
+  TaintedPathLocalFlow::flowTo(sink) and
+  if exists(PathCreation pc | pc.getAnInput() = sink.asExpr())
+  then result.asExpr() = any(PathCreation pc | pc.getAnInput() = sink.asExpr())
+  else result = sink
 }
 
-from
-  DataFlow::PathNode source, DataFlow::PathNode sink, PathCreation p, Expr e,
-  TaintedPathLocalConfig conf
-where
-  e = sink.getNode().asExpr() and
-  e = p.getInput() and
-  conf.hasFlowPath(source, sink) and
-  not guarded(e)
-select p, source, sink, "$@ flows to here and is used in a path.", source.getNode(),
-  "User-provided value"
+from TaintedPathLocalFlow::PathNode source, TaintedPathLocalFlow::PathNode sink
+where TaintedPathLocalFlow::flowPath(source, sink)
+select getReportingNode(sink.getNode()), source, sink, "This path depends on a $@.",
+  source.getNode(), "user-provided value"

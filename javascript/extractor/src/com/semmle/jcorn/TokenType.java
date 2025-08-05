@@ -1,8 +1,9 @@
 package com.semmle.jcorn;
 
-import com.semmle.jcorn.Parser.TokContext;
 import java.util.LinkedHashMap;
 import java.util.Map;
+
+import com.semmle.jcorn.Parser.TokContext;
 
 /// tokentype.js
 
@@ -85,9 +86,13 @@ public class TokenType {
       dot = new TokenType(new Properties(".")),
       questiondot = new TokenType(new Properties("?.")),
       question = new TokenType(new Properties("?").beforeExpr()),
+      pound = new TokenType(kw("#")),
       arrow = new TokenType(new Properties("=>").beforeExpr()),
       template = new TokenType(new Properties("template")),
       invalidTemplate = new TokenType(new Properties("invalidTemplate")),
+      generatedCodeExpr = new TokenType(new Properties("generatedCodeExpr")),
+      generatedCodeDelimiter = new TokenType(new Properties("generatedCodeDelimiter")),
+      generatedCodeDelimiterEJS = new TokenType(new Properties("<%/%>")),
       ellipsis = new TokenType(new Properties("...").beforeExpr()),
       backQuote =
           new TokenType(new Properties("`").startsExpr()) {

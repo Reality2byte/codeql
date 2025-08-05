@@ -2,16 +2,16 @@ function SanitizingRegExpTest () {
     var v = SOURCE();
     SINK(v);
 
-    if (/x/.test(v)) {
-        SINK(v);
+    if (/^x$/.test(v)) {
+        SINK(v); // sanitized
     } else {
         SINK(v);
     }
 
-    if (v.match(/x/)) {
+    if (v.match(/[^a-z]/)) {
         SINK(v);
     } else {
-        SINK(v);
+        SINK(v); // sanitized
     }
 
 }
@@ -44,7 +44,7 @@ function UndefinedCheckSanitizer () {
     var v = SOURCE();
     SINK(v);
 
-    if (o[v] == undefined) {
+	if (o[v] == undefined) {
         SINK(v);
     } else {
         SINK(v);
@@ -347,7 +347,7 @@ function IndirectSanitizer () {
         return unknown() && whitelist.contains(x9) && unknown();
     }
     if (f9(v)) {
-        SINK(v); // SANITIZATION OF THIS IS NOT YET SUPPORTED
+        SINK(v);
     } else {
         SINK(v);
     }
@@ -381,5 +381,24 @@ function constantComparisonSanitizer2() {
       } else {
         SINK(o[p]); // flagged
       }
+    }
+}
+
+function propertySanitization(o) {
+    var v = SOURCE();
+    SINK(v.p.q); // NOT OK
+
+    if (o.hasOwnProperty(v)) {
+        SINK(v); // OK
+    } else if (o.hasOwnProperty(v.p)) {
+        SINK(v.p); // OK
+    } else if (o.hasOwnProperty(v.p.q)) {
+        SINK(v.p.q); // OK
+    } else if (o.hasOwnProperty(v.p)) {
+        SINK(v); // NOT OK
+    } else if (o.hasOwnProperty(v["p.q"])) {
+        SINK(v.p.q); // NOT OK
+    } else if (Object.hasOwn(o, v)) {
+        SINK(v); // OK
     }
 }

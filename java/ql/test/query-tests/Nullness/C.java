@@ -87,7 +87,7 @@ public class C {
         vals[0] = 0; // OK
         break;
       default:
-        throw new Exception();
+        throw new RuntimeException();
     }
   }
 
@@ -158,5 +158,90 @@ public class C {
     if (b1 == null) {
       obj.hashCode(); // OK
     }
+  }
+
+  private final Object finalObj = new Object();
+
+  public void ex12() {
+    finalObj.hashCode(); // OK
+    if (finalObj != null) {
+      finalObj.hashCode(); // OK
+    }
+  }
+
+  private void verifyBool(boolean b) {
+    if (!b) {
+      throw new Error();
+    }
+  }
+
+  public void ex13(int[] a) {
+    int i = 0;
+    boolean b = false;
+    Object obj = null;
+    while (a[++i] != 0) {
+      if (a[i] == 1) {
+        obj = new Object();
+        b = true;
+      } else if (a[i] == 2) {
+        verifyBool(b);
+        obj.hashCode(); // NPE - false positive
+      }
+    }
+  }
+
+  private void verifyNotNull(Object obj) {
+    if (obj == null) {
+      throw new Error();
+    }
+  }
+
+  public void ex14(int[] a) {
+    int i = 0;
+    Object obj = null;
+    while (a[++i] != 0) {
+      if (a[i] == 1) {
+        obj = new Object();
+      } else if (a[i] == 2) {
+        verifyNotNull(obj);
+        obj.hashCode(); // NPE - false positive
+      }
+    }
+  }
+
+  public void ex15(Object o1, Object o2) {
+    if (o1 == null && o2 != null) {
+      return;
+    }
+    if (o1 == o2) {
+      return;
+    }
+    if (o1.equals(o2)) { // NPE - false positive
+      return;
+    }
+  }
+
+  private Object foo16;
+
+  private Object getFoo16() {
+    return this.foo16;
+  }
+
+  public static void ex16(C c) {
+    int[] xs = c.getFoo16() != null ? new int[5] : null;
+    if (c.getFoo16() != null) {
+      xs[0]++; // NPE - false positive
+    }
+  }
+
+  public static final int MAXLEN = 1024;
+
+  public void ex17() {
+    int[] xs = null;
+    // loop executes at least once
+    for (int i = 32; i <= MAXLEN; i *= 2) {
+      xs = new int[5];
+    }
+    xs[0]++; // OK
   }
 }

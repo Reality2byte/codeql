@@ -4,7 +4,7 @@
 
 import javascript
 // import typo database (generated from Wikipedia, licensed under CC BY-SA 3.0)
-import TypoDatabase
+import codeql.typos.TypoDatabase
 
 /**
  * Holds if `wrong` is a misspelling of `right` that might be intentional or
@@ -91,7 +91,8 @@ private string replaceATypoAndLowerCase(Identifier wrong) {
     idPart(wrong, wrongPart, offset)
   |
     normalized_typos(wrongPart, rightPart, _, _, _, _) and
-    rightName = wrong.getName().substring(0, offset) + rightPart +
+    rightName =
+      wrong.getName().substring(0, offset) + rightPart +
         wrong.getName().suffix(offset + wrongPart.length()) and
     result = rightName.toLowerCase()
   )

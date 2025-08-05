@@ -1,8 +1,9 @@
+| MethodAccess.cs:8:20:8:21 | access to local function M1 | MethodAccess.cs:8:20:8:21 | this access |
 | MethodAccess.cs:9:13:9:14 | access to method M2 | MethodAccess.cs:9:13:9:14 | this access |
 | MethodAccess.cs:10:13:10:19 | access to method M2 | MethodAccess.cs:10:13:10:16 | this access |
 | MethodAccess.cs:12:13:12:27 | access to method M3 | MethodAccess.cs:12:13:12:24 | access to type MethodAccess |
-| Qualifiers.cs:7:21:7:35 | call to method Instance | Qualifiers.cs:7:21:7:35 | this access |
-| Qualifiers.cs:9:22:9:42 | call to method Instance | Qualifiers.cs:9:22:9:25 | this access |
+| Qualifiers.cs:7:21:7:35 | call to method Instance<Int32> | Qualifiers.cs:7:21:7:35 | this access |
+| Qualifiers.cs:9:22:9:42 | call to method Instance<Boolean> | Qualifiers.cs:9:22:9:25 | this access |
 | expressions.cs:45:20:45:20 | access to field f | expressions.cs:45:20:45:20 | this access |
 | expressions.cs:51:13:51:34 | access to field name | expressions.cs:51:13:51:29 | access to type Class |
 | expressions.cs:52:13:52:23 | call to method Foo | expressions.cs:52:13:52:17 | access to type Class |
@@ -29,6 +30,8 @@
 | expressions.cs:182:27:182:30 | access to method M3 | expressions.cs:182:27:182:27 | access to local variable c |
 | expressions.cs:189:52:189:54 | access to method F | expressions.cs:189:52:189:52 | access to type X |
 | expressions.cs:190:36:190:38 | access to method G | expressions.cs:190:36:190:36 | access to type X |
+| expressions.cs:197:25:197:37 | access to local function LocalFunction | expressions.cs:197:25:197:37 | this access |
+| expressions.cs:198:19:198:31 | access to local function LocalFunction | expressions.cs:198:19:198:31 | this access |
 | expressions.cs:233:17:233:21 | access to event Click | expressions.cs:233:17:233:21 | this access |
 | expressions.cs:234:17:234:21 | access to event Click | expressions.cs:234:17:234:21 | this access |
 | expressions.cs:239:13:239:17 | access to event Click | expressions.cs:239:13:239:17 | this access |
@@ -62,7 +65,7 @@
 | expressions.cs:377:43:377:46 | access to field name | expressions.cs:377:43:377:46 | this access |
 | expressions.cs:377:57:377:60 | access to field name | expressions.cs:377:57:377:60 | this access |
 | expressions.cs:378:57:378:68 | access to field phoneNumbers | expressions.cs:378:57:378:68 | this access |
-| expressions.cs:442:29:442:47 | call to method WriteLine | expressions.cs:442:29:442:35 | access to type Console |
-| expressions.cs:470:17:470:26 | access to field value | expressions.cs:470:17:470:20 | this access |
-| expressions.cs:475:32:475:39 | access to field value | expressions.cs:475:32:475:33 | access to parameter c1 |
-| expressions.cs:475:43:475:50 | access to field value | expressions.cs:475:43:475:44 | access to parameter c2 |
+| expressions.cs:454:29:454:47 | call to method WriteLine | expressions.cs:454:29:454:35 | access to type Console |
+| expressions.cs:482:17:482:26 | access to field value | expressions.cs:482:17:482:20 | this access |
+| expressions.cs:487:32:487:39 | access to field value | expressions.cs:487:32:487:33 | access to parameter c1 |
+| expressions.cs:487:43:487:50 | access to field value | expressions.cs:487:43:487:44 | access to parameter c2 |

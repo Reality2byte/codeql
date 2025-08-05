@@ -16,15 +16,13 @@ import semmle.code.csharp.frameworks.Test
 import semmle.code.csharp.metrics.Coupling
 
 predicate potentiallyUsedFromXaml(RefType t) {
-  exists(string name | name = t.getABaseType*().getQualifiedName() |
-    name = "System.Windows.Data.IValueConverter" or
-    name = "System.Windows.Data.IMultiValueConverter"
-  )
+  t.getABaseType*()
+      .hasQualifiedName("System.Windows.Data", ["IValueConverter", "IMultiValueConverter"])
 }
 
 class ExportAttribute extends Attribute {
   ExportAttribute() {
-    getType().hasQualifiedName("System.ComponentModel.Composition.ExportAttribute")
+    this.getType().hasQualifiedName("System.ComponentModel.Composition", "ExportAttribute")
   }
 }
 
@@ -32,7 +30,7 @@ from RefType t
 where
   not extractionIsStandalone() and
   t.fromSource() and
-  t = t.getSourceDeclaration() and
+  t.isUnboundDeclaration() and
   not t instanceof AnonymousClass and
   not (t.isPublic() or t.isProtected()) and
   not exists(ValueOrRefType dependent | depends(dependent, t) and dependent != t) and

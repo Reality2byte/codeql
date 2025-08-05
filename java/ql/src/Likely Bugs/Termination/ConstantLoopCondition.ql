@@ -32,7 +32,7 @@ predicate loopExit(LoopStmt loop, Stmt exit) {
   exit.getEnclosingStmt*() = loop.getBody() and
   (
     exit instanceof ReturnStmt or
-    exit.(BreakStmt).(JumpStmt).getTarget() = loop.getEnclosingStmt*()
+    exit.(BreakStmt).getTarget() = loop.getEnclosingStmt*()
   )
 }
 
@@ -74,12 +74,16 @@ where
   ) and
   // None of the ssa variables in `cond` are updated inside the loop.
   forex(SsaVariable ssa, RValue use | ssa.getAUse() = use and use.getParent*() = cond |
-    not ssa.getCFGNode().getEnclosingStmt().getEnclosingStmt*() = loop or
-    ssa.getCFGNode().(Expr).getParent*() = loop.(ForStmt).getAnInit()
+    not ssa.getCfgNode().getEnclosingStmt().getEnclosingStmt*() = loop or
+    ssa.getCfgNode().(Expr).getParent*() = loop.(ForStmt).getAnInit()
   ) and
   // And `cond` does not use method calls, field reads, or array reads.
   not exists(MethodAccess ma | ma.getParent*() = cond) and
-  not exists(FieldRead fa | fa.getParent*() = cond) and
+  not exists(FieldRead fa |
+    // Ignore if field is final
+    not fa.getField().isFinal() and
+    fa.getParent*() = cond
+  ) and
   not exists(ArrayAccess aa | aa.getParent*() = cond)
 select cond, "$@ might not terminate, as this loop condition is constant within the loop.", loop,
   "Loop"

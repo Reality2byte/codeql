@@ -1,14 +1,14 @@
-using Microsoft.Win32.SafeHandles;
 using System;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 
 namespace Semmle.Util
 {
     /// <summary>
     /// Holder for various Win32 functions.
     /// </summary>
-    public class Win32
+    public static class Win32
     {
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         public static extern int GetFinalPathNameByHandle(  // lgtm[cs/unmanaged-code]

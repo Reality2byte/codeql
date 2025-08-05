@@ -10,10 +10,16 @@
  *       correctness
  *       external/cwe/cwe-482
  */
+
 import cpp
 
 from ExprInVoidContext op
-where op instanceof EQExpr
-      or
-      op.(FunctionCall).getTarget().hasName("operator==")
+where
+  not op.isUnevaluated() and
+  not inMacroExpansion(op) and
+  (
+    op instanceof EQExpr
+    or
+    op.(FunctionCall).getTarget().hasName("operator==")
+  )
 select op, "This '==' operator has no effect. The assignment ('=') operator was probably intended."

@@ -50,7 +50,7 @@ abstract class LossOfPrecision extends Expr {
   Type convertedType;
 
   LossOfPrecision() {
-    getType() instanceof IntegralType and
+    this.getType() instanceof IntegralType and
     convertedToFloatOrDecimal(this, convertedType)
   }
 
@@ -82,7 +82,8 @@ class MulLossOfPrecision extends LossOfPrecision, MulExpr {
   MulLossOfPrecision() { not small(this) }
 
   override string getMessage() {
-    result = "Possible overflow: result of integer multiplication cast to " +
+    result =
+      "Possible overflow: result of integer multiplication cast to " +
         convertedType.toStringWithTypes() + "."
   }
 }

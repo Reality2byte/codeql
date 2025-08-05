@@ -1,4 +1,25 @@
 test_getParent
+| assignment2.ts:1:5:1:5 | a | assignment2.ts:1:5:1:9 | a = 2 |
+| assignment2.ts:1:5:1:9 | a = 2 | assignment2.ts:1:1:1:10 | let a = 2; |
+| assignment2.ts:1:9:1:9 | 2 | assignment2.ts:1:5:1:9 | a = 2 |
+| assignment2.ts:2:5:2:5 | b | assignment2.ts:2:5:2:9 | b = 3 |
+| assignment2.ts:2:5:2:9 | b = 3 | assignment2.ts:2:1:2:10 | let b = 3; |
+| assignment2.ts:2:9:2:9 | 3 | assignment2.ts:2:5:2:9 | b = 3 |
+| assignment2.ts:4:1:4:1 | a | assignment2.ts:4:1:4:6 | a = 23 |
+| assignment2.ts:4:1:4:6 | a = 23 | assignment2.ts:4:1:4:7 | a = 23; |
+| assignment2.ts:4:5:4:6 | 23 | assignment2.ts:4:1:4:6 | a = 23 |
+| assignment2.ts:5:1:5:1 | a | assignment2.ts:5:1:5:7 | a += 19 |
+| assignment2.ts:5:1:5:7 | a += 19 | assignment2.ts:5:1:5:8 | a += 19; |
+| assignment2.ts:5:6:5:7 | 19 | assignment2.ts:5:1:5:7 | a += 19 |
+| assignment2.ts:7:1:7:1 | a | assignment2.ts:7:1:7:7 | a &&= 4 |
+| assignment2.ts:7:1:7:7 | a &&= 4 | assignment2.ts:7:1:7:8 | a &&= 4; |
+| assignment2.ts:7:7:7:7 | 4 | assignment2.ts:7:1:7:7 | a &&= 4 |
+| assignment2.ts:8:1:8:1 | a | assignment2.ts:8:1:8:7 | a \|\|= 5 |
+| assignment2.ts:8:1:8:7 | a \|\|= 5 | assignment2.ts:8:1:8:8 | a \|\|= 5; |
+| assignment2.ts:8:7:8:7 | 5 | assignment2.ts:8:1:8:7 | a \|\|= 5 |
+| assignment2.ts:9:1:9:1 | a | assignment2.ts:9:1:9:7 | a ??= 6 |
+| assignment2.ts:9:1:9:7 | a ??= 6 | assignment2.ts:9:1:9:8 | a ??= 6; |
+| assignment2.ts:9:7:9:7 | 6 | assignment2.ts:9:1:9:7 | a ??= 6 |
 | assignment.js:1:1:1:1 | a | assignment.js:1:1:1:6 | a = 23 |
 | assignment.js:1:1:1:6 | a = 23 | assignment.js:1:1:1:7 | a = 23; |
 | assignment.js:1:5:1:6 | 23 | assignment.js:1:1:1:6 | a = 23 |
@@ -104,6 +125,22 @@ test_getParent
 | comparison.js:8:1:8:1 | 2 | comparison.js:8:1:8:6 | 2 >= 1 |
 | comparison.js:8:1:8:6 | 2 >= 1 | comparison.js:8:1:8:7 | 2 >= 1; |
 | comparison.js:8:6:8:6 | 1 | comparison.js:8:1:8:6 | 2 >= 1 |
+| computedFieldNames.ts:1:7:1:10 | key1 | computedFieldNames.ts:1:7:1:19 | key1 = "key1" |
+| computedFieldNames.ts:1:7:1:19 | key1 = "key1" | computedFieldNames.ts:1:1:1:20 | const key1 = "key1"; |
+| computedFieldNames.ts:1:14:1:19 | "key1" | computedFieldNames.ts:1:7:1:19 | key1 = "key1" |
+| computedFieldNames.ts:2:7:2:19 | NoConstructor | computedFieldNames.ts:2:1:4:1 | class N ...  = 4;\\n} |
+| computedFieldNames.ts:2:21:2:20 | () {} | computedFieldNames.ts:2:21:2:20 | constructor() {} |
+| computedFieldNames.ts:2:21:2:20 | constructor | computedFieldNames.ts:2:21:2:20 | constructor() {} |
+| computedFieldNames.ts:3:4:3:7 | key1 | computedFieldNames.ts:3:3:3:13 | [key1] = 4; |
+| computedFieldNames.ts:3:12:3:12 | 4 | computedFieldNames.ts:3:3:3:13 | [key1] = 4; |
+| computedFieldNames.ts:6:7:6:10 | key2 | computedFieldNames.ts:6:7:6:19 | key2 = "key2" |
+| computedFieldNames.ts:6:7:6:19 | key2 = "key2" | computedFieldNames.ts:6:1:6:20 | const key2 = "key2"; |
+| computedFieldNames.ts:6:14:6:19 | "key2" | computedFieldNames.ts:6:7:6:19 | key2 = "key2" |
+| computedFieldNames.ts:7:7:7:21 | WithConstructor | computedFieldNames.ts:7:1:11:1 | class W ... () {}\\n} |
+| computedFieldNames.ts:8:4:8:7 | key2 | computedFieldNames.ts:8:3:8:13 | [key2] = 4; |
+| computedFieldNames.ts:8:12:8:12 | 4 | computedFieldNames.ts:8:3:8:13 | [key2] = 4; |
+| computedFieldNames.ts:10:3:10:18 | constructor() {} | computedFieldNames.ts:10:3:10:18 | constructor() {} |
+| computedFieldNames.ts:10:3:10:18 | constructor() {} | computedFieldNames.ts:10:3:10:18 | constructor() {} |
 | es2015.js:1:1:1:18 | ["a", "ab", "abc"] | es2015.js:1:1:1:22 | ["a", " ... c"].map |
 | es2015.js:1:1:1:22 | ["a", " ... c"].map | es2015.js:1:1:1:37 | ["a", " ... length) |
 | es2015.js:1:1:1:37 | ["a", " ... length) | es2015.js:1:1:1:38 | ["a", " ... ength); |
@@ -452,6 +489,27 @@ test_getParent
 | update.js:4:1:4:1 | b | update.js:4:1:4:3 | b-- |
 | update.js:4:1:4:3 | b-- | update.js:4:1:4:4 | b--; |
 test_getTopLevel
+| assignment2.ts:1:5:1:5 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:1:5:1:9 | a = 2 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:1:9:1:9 | 2 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:2:5:2:5 | b | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:2:5:2:9 | b = 3 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:2:9:2:9 | 3 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:4:1:4:1 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:4:1:4:6 | a = 23 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:4:5:4:6 | 23 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:5:1:5:1 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:5:1:5:7 | a += 19 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:5:6:5:7 | 19 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:7:1:7:1 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:7:1:7:7 | a &&= 4 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:7:7:7:7 | 4 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:8:1:8:1 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:8:1:8:7 | a \|\|= 5 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:8:7:8:7 | 5 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:9:1:9:1 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:9:1:9:7 | a ??= 6 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:9:7:9:7 | 6 | assignment2.ts:1:1:9:8 | <toplevel> |
 | assignment.js:1:1:1:1 | a | assignment.js:1:1:12:7 | <toplevel> |
 | assignment.js:1:1:1:6 | a = 23 | assignment.js:1:1:12:7 | <toplevel> |
 | assignment.js:1:5:1:6 | 23 | assignment.js:1:1:12:7 | <toplevel> |
@@ -557,6 +615,22 @@ test_getTopLevel
 | comparison.js:8:1:8:1 | 2 | comparison.js:1:1:9:0 | <toplevel> |
 | comparison.js:8:1:8:6 | 2 >= 1 | comparison.js:1:1:9:0 | <toplevel> |
 | comparison.js:8:6:8:6 | 1 | comparison.js:1:1:9:0 | <toplevel> |
+| computedFieldNames.ts:1:7:1:10 | key1 | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:1:7:1:19 | key1 = "key1" | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:1:14:1:19 | "key1" | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:2:7:2:19 | NoConstructor | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:2:21:2:20 | () {} | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:2:21:2:20 | constructor | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:3:4:3:7 | key1 | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:3:12:3:12 | 4 | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:6:7:6:10 | key2 | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:6:7:6:19 | key2 = "key2" | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:6:14:6:19 | "key2" | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:7:7:7:21 | WithConstructor | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:8:4:8:7 | key2 | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:8:12:8:12 | 4 | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:10:3:10:18 | constructor() {} | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:10:3:10:18 | constructor() {} | computedFieldNames.ts:1:1:12:0 | <toplevel> |
 | es2015.js:1:1:1:18 | ["a", "ab", "abc"] | es2015.js:1:1:29:0 | <toplevel> |
 | es2015.js:1:1:1:22 | ["a", " ... c"].map | es2015.js:1:1:29:0 | <toplevel> |
 | es2015.js:1:1:1:37 | ["a", " ... length) | es2015.js:1:1:29:0 | <toplevel> |
@@ -650,29 +724,29 @@ test_getTopLevel
 | functions.js:7:4:7:4 | x | functions.js:1:1:10:7 | <toplevel> |
 | functions.js:7:7:7:16 | in_f_again | functions.js:1:1:10:7 | <toplevel> |
 | functions.js:10:1:10:6 | global | functions.js:1:1:10:7 | <toplevel> |
-| legacyletexpr.js:1:1:1:7 | console | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:1:1:11 | console.log | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:1:1:39 | console ...  x + y) | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:9:1:11 | log | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:13:1:38 | let (x  ... ) x + y | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:18:1:18 | x | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:18:1:23 | x = 23 | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:22:1:23 | 23 | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:26:1:26 | y | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:26:1:31 | y = 19 | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:30:1:31 | 19 | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:34:1:34 | x | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:34:1:38 | x + y | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:38:1:38 | y | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:1:1:5 | array | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:1:1:9 | array.map | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:1:1:26 | array.m ... x) x+1) | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:7:1:9 | map | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:11:1:25 | function(x) x+1 | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:20:1:20 | x | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:23:1:23 | x | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:23:1:25 | x+1 | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:25:1:25 | 1 | mozextensions.js:1:1:3:42 | <toplevel> |
+| legacyletexpr.js:1:1:1:7 | console | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:1:1:11 | console.log | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:1:1:39 | console ...  x + y) | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:9:1:11 | log | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:13:1:38 | let (x  ... ) x + y | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:18:1:18 | x | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:18:1:23 | x = 23 | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:22:1:23 | 23 | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:26:1:26 | y | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:26:1:31 | y = 19 | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:30:1:31 | 19 | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:34:1:34 | x | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:34:1:38 | x + y | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:38:1:38 | y | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:1:1:5 | array | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:1:1:9 | array.map | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:1:1:26 | array.m ... x) x+1) | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:7:1:9 | map | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:11:1:25 | function(x) x+1 | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:20:1:20 | x | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:23:1:23 | x | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:23:1:25 | x+1 | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:25:1:25 | 1 | mozextensions.js:1:1:2:0 | <toplevel> |
 | nullSensitiveContexts.js:7:1:7:3 | foo | nullSensitiveContexts.js:1:1:61:0 | <toplevel> |
 | nullSensitiveContexts.js:7:1:7:8 | foo[bar] | nullSensitiveContexts.js:1:1:61:0 | <toplevel> |
 | nullSensitiveContexts.js:7:5:7:7 | bar | nullSensitiveContexts.js:1:1:61:0 | <toplevel> |
@@ -905,6 +979,20 @@ test_getTopLevel
 | update.js:4:1:4:1 | b | update.js:1:1:5:0 | <toplevel> |
 | update.js:4:1:4:3 | b-- | update.js:1:1:5:0 | <toplevel> |
 test_getChild
+| assignment2.ts:1:5:1:9 | a = 2 | 0 | assignment2.ts:1:5:1:5 | a |
+| assignment2.ts:1:5:1:9 | a = 2 | 1 | assignment2.ts:1:9:1:9 | 2 |
+| assignment2.ts:2:5:2:9 | b = 3 | 0 | assignment2.ts:2:5:2:5 | b |
+| assignment2.ts:2:5:2:9 | b = 3 | 1 | assignment2.ts:2:9:2:9 | 3 |
+| assignment2.ts:4:1:4:6 | a = 23 | 0 | assignment2.ts:4:1:4:1 | a |
+| assignment2.ts:4:1:4:6 | a = 23 | 1 | assignment2.ts:4:5:4:6 | 23 |
+| assignment2.ts:5:1:5:7 | a += 19 | 0 | assignment2.ts:5:1:5:1 | a |
+| assignment2.ts:5:1:5:7 | a += 19 | 1 | assignment2.ts:5:6:5:7 | 19 |
+| assignment2.ts:7:1:7:7 | a &&= 4 | 0 | assignment2.ts:7:1:7:1 | a |
+| assignment2.ts:7:1:7:7 | a &&= 4 | 1 | assignment2.ts:7:7:7:7 | 4 |
+| assignment2.ts:8:1:8:7 | a \|\|= 5 | 0 | assignment2.ts:8:1:8:1 | a |
+| assignment2.ts:8:1:8:7 | a \|\|= 5 | 1 | assignment2.ts:8:7:8:7 | 5 |
+| assignment2.ts:9:1:9:7 | a ??= 6 | 0 | assignment2.ts:9:1:9:1 | a |
+| assignment2.ts:9:1:9:7 | a ??= 6 | 1 | assignment2.ts:9:7:9:7 | 6 |
 | assignment.js:1:1:1:6 | a = 23 | 0 | assignment.js:1:1:1:1 | a |
 | assignment.js:1:1:1:6 | a = 23 | 1 | assignment.js:1:5:1:6 | 23 |
 | assignment.js:2:1:2:7 | a += 19 | 0 | assignment.js:2:1:2:1 | a |
@@ -975,6 +1063,10 @@ test_getChild
 | comparison.js:7:1:7:5 | 2 > 1 | 1 | comparison.js:7:5:7:5 | 1 |
 | comparison.js:8:1:8:6 | 2 >= 1 | 0 | comparison.js:8:1:8:1 | 2 |
 | comparison.js:8:1:8:6 | 2 >= 1 | 1 | comparison.js:8:6:8:6 | 1 |
+| computedFieldNames.ts:1:7:1:19 | key1 = "key1" | 0 | computedFieldNames.ts:1:7:1:10 | key1 |
+| computedFieldNames.ts:1:7:1:19 | key1 = "key1" | 1 | computedFieldNames.ts:1:14:1:19 | "key1" |
+| computedFieldNames.ts:6:7:6:19 | key2 = "key2" | 0 | computedFieldNames.ts:6:7:6:10 | key2 |
+| computedFieldNames.ts:6:7:6:19 | key2 = "key2" | 1 | computedFieldNames.ts:6:14:6:19 | "key2" |
 | es2015.js:1:1:1:18 | ["a", "ab", "abc"] | 0 | es2015.js:1:2:1:4 | "a" |
 | es2015.js:1:1:1:18 | ["a", "ab", "abc"] | 1 | es2015.js:1:7:1:10 | "ab" |
 | es2015.js:1:1:1:18 | ["a", "ab", "abc"] | 2 | es2015.js:1:13:1:17 | "abc" |
@@ -1177,6 +1269,20 @@ test_getChild
 | update.js:3:1:3:3 | --b | 0 | update.js:3:3:3:3 | b |
 | update.js:4:1:4:3 | b-- | 0 | update.js:4:1:4:1 | b |
 test_isPure
+| assignment2.ts:1:5:1:5 | a |
+| assignment2.ts:1:9:1:9 | 2 |
+| assignment2.ts:2:5:2:5 | b |
+| assignment2.ts:2:9:2:9 | 3 |
+| assignment2.ts:4:1:4:1 | a |
+| assignment2.ts:4:5:4:6 | 23 |
+| assignment2.ts:5:1:5:1 | a |
+| assignment2.ts:5:6:5:7 | 19 |
+| assignment2.ts:7:1:7:1 | a |
+| assignment2.ts:7:7:7:7 | 4 |
+| assignment2.ts:8:1:8:1 | a |
+| assignment2.ts:8:7:8:7 | 5 |
+| assignment2.ts:9:1:9:1 | a |
+| assignment2.ts:9:7:9:7 | 6 |
 | assignment.js:1:1:1:1 | a |
 | assignment.js:1:5:1:6 | 23 |
 | assignment.js:2:1:2:1 | a |
@@ -1270,6 +1376,20 @@ test_isPure
 | comparison.js:8:1:8:1 | 2 |
 | comparison.js:8:1:8:6 | 2 >= 1 |
 | comparison.js:8:6:8:6 | 1 |
+| computedFieldNames.ts:1:7:1:10 | key1 |
+| computedFieldNames.ts:1:14:1:19 | "key1" |
+| computedFieldNames.ts:2:7:2:19 | NoConstructor |
+| computedFieldNames.ts:2:21:2:20 | () {} |
+| computedFieldNames.ts:2:21:2:20 | constructor |
+| computedFieldNames.ts:3:4:3:7 | key1 |
+| computedFieldNames.ts:3:12:3:12 | 4 |
+| computedFieldNames.ts:6:7:6:10 | key2 |
+| computedFieldNames.ts:6:14:6:19 | "key2" |
+| computedFieldNames.ts:7:7:7:21 | WithConstructor |
+| computedFieldNames.ts:8:4:8:7 | key2 |
+| computedFieldNames.ts:8:12:8:12 | 4 |
+| computedFieldNames.ts:10:3:10:18 | constructor() {} |
+| computedFieldNames.ts:10:3:10:18 | constructor() {} |
 | es2015.js:1:1:1:18 | ["a", "ab", "abc"] |
 | es2015.js:1:1:1:22 | ["a", " ... c"].map |
 | es2015.js:1:2:1:4 | "a" |
@@ -1570,6 +1690,10 @@ test_RelationalComparisons
 | comparison.js:8:1:8:6 | 2 >= 1 | comparison.js:8:6:8:6 | 1 | comparison.js:8:1:8:1 | 2 |
 | es2015.js:23:8:23:12 | n-->0 | es2015.js:23:12:23:12 | 0 | es2015.js:23:8:23:10 | n-- |
 test_getEnclosingFunction
+| computedFieldNames.ts:3:4:3:7 | key1 | computedFieldNames.ts:2:21:2:20 | () {} |
+| computedFieldNames.ts:3:12:3:12 | 4 | computedFieldNames.ts:2:21:2:20 | () {} |
+| computedFieldNames.ts:8:4:8:7 | key2 | computedFieldNames.ts:10:3:10:18 | constructor() {} |
+| computedFieldNames.ts:8:12:8:12 | 4 | computedFieldNames.ts:10:3:10:18 | constructor() {} |
 | es2015.js:1:24:1:24 | s | es2015.js:1:24:1:36 | s => s.length |
 | es2015.js:1:29:1:29 | s | es2015.js:1:24:1:36 | s => s.length |
 | es2015.js:1:29:1:36 | s.length | es2015.js:1:24:1:36 | s => s.length |
@@ -1654,6 +1778,27 @@ test_stripParens
 | primaries.js:28:2:28:5 | (42) | primaries.js:28:3:28:4 | 42 |
 | unary.js:6:5:6:7 | (0) | unary.js:6:6:6:6 | 0 |
 test_getContainer
+| assignment2.ts:1:5:1:5 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:1:5:1:9 | a = 2 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:1:9:1:9 | 2 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:2:5:2:5 | b | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:2:5:2:9 | b = 3 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:2:9:2:9 | 3 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:4:1:4:1 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:4:1:4:6 | a = 23 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:4:5:4:6 | 23 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:5:1:5:1 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:5:1:5:7 | a += 19 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:5:6:5:7 | 19 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:7:1:7:1 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:7:1:7:7 | a &&= 4 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:7:7:7:7 | 4 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:8:1:8:1 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:8:1:8:7 | a \|\|= 5 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:8:7:8:7 | 5 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:9:1:9:1 | a | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:9:1:9:7 | a ??= 6 | assignment2.ts:1:1:9:8 | <toplevel> |
+| assignment2.ts:9:7:9:7 | 6 | assignment2.ts:1:1:9:8 | <toplevel> |
 | assignment.js:1:1:1:1 | a | assignment.js:1:1:12:7 | <toplevel> |
 | assignment.js:1:1:1:6 | a = 23 | assignment.js:1:1:12:7 | <toplevel> |
 | assignment.js:1:5:1:6 | 23 | assignment.js:1:1:12:7 | <toplevel> |
@@ -1759,6 +1904,22 @@ test_getContainer
 | comparison.js:8:1:8:1 | 2 | comparison.js:1:1:9:0 | <toplevel> |
 | comparison.js:8:1:8:6 | 2 >= 1 | comparison.js:1:1:9:0 | <toplevel> |
 | comparison.js:8:6:8:6 | 1 | comparison.js:1:1:9:0 | <toplevel> |
+| computedFieldNames.ts:1:7:1:10 | key1 | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:1:7:1:19 | key1 = "key1" | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:1:14:1:19 | "key1" | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:2:7:2:19 | NoConstructor | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:2:21:2:20 | () {} | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:2:21:2:20 | constructor | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:3:4:3:7 | key1 | computedFieldNames.ts:2:21:2:20 | () {} |
+| computedFieldNames.ts:3:12:3:12 | 4 | computedFieldNames.ts:2:21:2:20 | () {} |
+| computedFieldNames.ts:6:7:6:10 | key2 | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:6:7:6:19 | key2 = "key2" | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:6:14:6:19 | "key2" | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:7:7:7:21 | WithConstructor | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:8:4:8:7 | key2 | computedFieldNames.ts:10:3:10:18 | constructor() {} |
+| computedFieldNames.ts:8:12:8:12 | 4 | computedFieldNames.ts:10:3:10:18 | constructor() {} |
+| computedFieldNames.ts:10:3:10:18 | constructor() {} | computedFieldNames.ts:1:1:12:0 | <toplevel> |
+| computedFieldNames.ts:10:3:10:18 | constructor() {} | computedFieldNames.ts:1:1:12:0 | <toplevel> |
 | es2015.js:1:1:1:18 | ["a", "ab", "abc"] | es2015.js:1:1:29:0 | <toplevel> |
 | es2015.js:1:1:1:22 | ["a", " ... c"].map | es2015.js:1:1:29:0 | <toplevel> |
 | es2015.js:1:1:1:37 | ["a", " ... length) | es2015.js:1:1:29:0 | <toplevel> |
@@ -1852,25 +2013,25 @@ test_getContainer
 | functions.js:7:4:7:4 | x | functions.js:1:1:9:1 | functio ... \\t\\t});\\n} |
 | functions.js:7:7:7:16 | in_f_again | functions.js:1:1:9:1 | functio ... \\t\\t});\\n} |
 | functions.js:10:1:10:6 | global | functions.js:1:1:10:7 | <toplevel> |
-| legacyletexpr.js:1:1:1:7 | console | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:1:1:11 | console.log | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:1:1:39 | console ...  x + y) | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:9:1:11 | log | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:13:1:38 | let (x  ... ) x + y | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:18:1:18 | x | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:18:1:23 | x = 23 | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:22:1:23 | 23 | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:26:1:26 | y | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:26:1:31 | y = 19 | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:30:1:31 | 19 | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:34:1:34 | x | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:34:1:38 | x + y | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| legacyletexpr.js:1:38:1:38 | y | legacyletexpr.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:1:1:5 | array | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:1:1:9 | array.map | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:1:1:26 | array.m ... x) x+1) | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:7:1:9 | map | mozextensions.js:1:1:3:42 | <toplevel> |
-| mozextensions.js:1:11:1:25 | function(x) x+1 | mozextensions.js:1:1:3:42 | <toplevel> |
+| legacyletexpr.js:1:1:1:7 | console | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:1:1:11 | console.log | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:1:1:39 | console ...  x + y) | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:9:1:11 | log | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:13:1:38 | let (x  ... ) x + y | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:18:1:18 | x | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:18:1:23 | x = 23 | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:22:1:23 | 23 | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:26:1:26 | y | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:26:1:31 | y = 19 | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:30:1:31 | 19 | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:34:1:34 | x | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:34:1:38 | x + y | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| legacyletexpr.js:1:38:1:38 | y | legacyletexpr.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:1:1:5 | array | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:1:1:9 | array.map | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:1:1:26 | array.m ... x) x+1) | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:7:1:9 | map | mozextensions.js:1:1:2:0 | <toplevel> |
+| mozextensions.js:1:11:1:25 | function(x) x+1 | mozextensions.js:1:1:2:0 | <toplevel> |
 | mozextensions.js:1:20:1:20 | x | mozextensions.js:1:11:1:25 | function(x) x+1 |
 | mozextensions.js:1:23:1:23 | x | mozextensions.js:1:11:1:25 | function(x) x+1 |
 | mozextensions.js:1:23:1:25 | x+1 | mozextensions.js:1:11:1:25 | function(x) x+1 |
@@ -2107,6 +2268,27 @@ test_getContainer
 | update.js:4:1:4:1 | b | update.js:1:1:5:0 | <toplevel> |
 | update.js:4:1:4:3 | b-- | update.js:1:1:5:0 | <toplevel> |
 test_getEnclosingStmt
+| assignment2.ts:1:5:1:5 | a | assignment2.ts:1:1:1:10 | let a = 2; |
+| assignment2.ts:1:5:1:9 | a = 2 | assignment2.ts:1:1:1:10 | let a = 2; |
+| assignment2.ts:1:9:1:9 | 2 | assignment2.ts:1:1:1:10 | let a = 2; |
+| assignment2.ts:2:5:2:5 | b | assignment2.ts:2:1:2:10 | let b = 3; |
+| assignment2.ts:2:5:2:9 | b = 3 | assignment2.ts:2:1:2:10 | let b = 3; |
+| assignment2.ts:2:9:2:9 | 3 | assignment2.ts:2:1:2:10 | let b = 3; |
+| assignment2.ts:4:1:4:1 | a | assignment2.ts:4:1:4:7 | a = 23; |
+| assignment2.ts:4:1:4:6 | a = 23 | assignment2.ts:4:1:4:7 | a = 23; |
+| assignment2.ts:4:5:4:6 | 23 | assignment2.ts:4:1:4:7 | a = 23; |
+| assignment2.ts:5:1:5:1 | a | assignment2.ts:5:1:5:8 | a += 19; |
+| assignment2.ts:5:1:5:7 | a += 19 | assignment2.ts:5:1:5:8 | a += 19; |
+| assignment2.ts:5:6:5:7 | 19 | assignment2.ts:5:1:5:8 | a += 19; |
+| assignment2.ts:7:1:7:1 | a | assignment2.ts:7:1:7:8 | a &&= 4; |
+| assignment2.ts:7:1:7:7 | a &&= 4 | assignment2.ts:7:1:7:8 | a &&= 4; |
+| assignment2.ts:7:7:7:7 | 4 | assignment2.ts:7:1:7:8 | a &&= 4; |
+| assignment2.ts:8:1:8:1 | a | assignment2.ts:8:1:8:8 | a \|\|= 5; |
+| assignment2.ts:8:1:8:7 | a \|\|= 5 | assignment2.ts:8:1:8:8 | a \|\|= 5; |
+| assignment2.ts:8:7:8:7 | 5 | assignment2.ts:8:1:8:8 | a \|\|= 5; |
+| assignment2.ts:9:1:9:1 | a | assignment2.ts:9:1:9:8 | a ??= 6; |
+| assignment2.ts:9:1:9:7 | a ??= 6 | assignment2.ts:9:1:9:8 | a ??= 6; |
+| assignment2.ts:9:7:9:7 | 6 | assignment2.ts:9:1:9:8 | a ??= 6; |
 | assignment.js:1:1:1:1 | a | assignment.js:1:1:1:7 | a = 23; |
 | assignment.js:1:1:1:6 | a = 23 | assignment.js:1:1:1:7 | a = 23; |
 | assignment.js:1:5:1:6 | 23 | assignment.js:1:1:1:7 | a = 23; |
@@ -2212,6 +2394,18 @@ test_getEnclosingStmt
 | comparison.js:8:1:8:1 | 2 | comparison.js:8:1:8:7 | 2 >= 1; |
 | comparison.js:8:1:8:6 | 2 >= 1 | comparison.js:8:1:8:7 | 2 >= 1; |
 | comparison.js:8:6:8:6 | 1 | comparison.js:8:1:8:7 | 2 >= 1; |
+| computedFieldNames.ts:1:7:1:10 | key1 | computedFieldNames.ts:1:1:1:20 | const key1 = "key1"; |
+| computedFieldNames.ts:1:7:1:19 | key1 = "key1" | computedFieldNames.ts:1:1:1:20 | const key1 = "key1"; |
+| computedFieldNames.ts:1:14:1:19 | "key1" | computedFieldNames.ts:1:1:1:20 | const key1 = "key1"; |
+| computedFieldNames.ts:2:7:2:19 | NoConstructor | computedFieldNames.ts:2:1:4:1 | class N ...  = 4;\\n} |
+| computedFieldNames.ts:2:21:2:20 | () {} | computedFieldNames.ts:2:1:4:1 | class N ...  = 4;\\n} |
+| computedFieldNames.ts:2:21:2:20 | constructor | computedFieldNames.ts:2:1:4:1 | class N ...  = 4;\\n} |
+| computedFieldNames.ts:6:7:6:10 | key2 | computedFieldNames.ts:6:1:6:20 | const key2 = "key2"; |
+| computedFieldNames.ts:6:7:6:19 | key2 = "key2" | computedFieldNames.ts:6:1:6:20 | const key2 = "key2"; |
+| computedFieldNames.ts:6:14:6:19 | "key2" | computedFieldNames.ts:6:1:6:20 | const key2 = "key2"; |
+| computedFieldNames.ts:7:7:7:21 | WithConstructor | computedFieldNames.ts:7:1:11:1 | class W ... () {}\\n} |
+| computedFieldNames.ts:10:3:10:18 | constructor() {} | computedFieldNames.ts:7:1:11:1 | class W ... () {}\\n} |
+| computedFieldNames.ts:10:3:10:18 | constructor() {} | computedFieldNames.ts:7:1:11:1 | class W ... () {}\\n} |
 | es2015.js:1:1:1:18 | ["a", "ab", "abc"] | es2015.js:1:1:1:38 | ["a", " ... ength); |
 | es2015.js:1:1:1:22 | ["a", " ... c"].map | es2015.js:1:1:1:38 | ["a", " ... ength); |
 | es2015.js:1:1:1:37 | ["a", " ... length) | es2015.js:1:1:1:38 | ["a", " ... ength); |
@@ -2530,6 +2724,14 @@ test_getEnclosingStmt
 | update.js:4:1:4:1 | b | update.js:4:1:4:4 | b--; |
 | update.js:4:1:4:3 | b-- | update.js:4:1:4:4 | b--; |
 test_inNullSensitiveContext
+| assignment2.ts:5:1:5:1 | a |
+| assignment2.ts:5:6:5:7 | 19 |
+| assignment2.ts:7:1:7:1 | a |
+| assignment2.ts:7:7:7:7 | 4 |
+| assignment2.ts:8:1:8:1 | a |
+| assignment2.ts:8:7:8:7 | 5 |
+| assignment2.ts:9:1:9:1 | a |
+| assignment2.ts:9:7:9:7 | 6 |
 | assignment.js:2:1:2:1 | a |
 | assignment.js:2:6:2:7 | 19 |
 | assignment.js:3:1:3:1 | a |

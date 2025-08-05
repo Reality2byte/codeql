@@ -5,6 +5,7 @@
  *              but under some circumstances may also result in incorrect results.
  * @kind problem
  * @problem.severity warning
+ * @security-severity 7.0
  * @precision medium
  * @id cs/thread-unsafe-icryptotransform-field-in-class
  * @tags concurrency
@@ -18,7 +19,7 @@ import semmle.code.csharp.frameworks.system.collections.Generic
 class UnsafeField extends Field {
   UnsafeField() {
     this.isStatic() and
-    not this.getAnAttribute().getType().getQualifiedName() = "System.ThreadStaticAttribute" and
+    not this.getAnAttribute().getType().hasQualifiedName("System", "ThreadStaticAttribute") and
     this.getType() instanceof UsesICryptoTransform
   }
 }

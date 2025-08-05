@@ -12,7 +12,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Semmle Plc")]
 [assembly: AssemblyProduct("Odasa")]
-[assembly: AssemblyCopyright("Copyright © Semmle 2018")]
+[assembly: AssemblyCopyright("Copyright Â© Semmle 2018")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -37,6 +37,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
 
+[assembly: Args(0, new object[] { 1, 2, null }, typeof(ArgsAttribute), (E)12, null, Prop = new object[] { 1, typeof(int) })]
+[module: Args(0, new object[] { 1, 2, null }, typeof(ArgsAttribute), (E)12, null, Prop = new object[] { 1, typeof(int) })]
+
 [System.AttributeUsage(System.AttributeTargets.All)]
 class Foo : Attribute
 {
@@ -52,6 +55,7 @@ class Bar
     void M1() { }
 
     [MyAttribute(true, y = "", x = 0)]
+    [My2(b: true, j: 1, a: false, X = 42)]
     void M2() { }
 }
 
@@ -60,4 +64,69 @@ class MyAttribute : Attribute
     public int x;
     public string y { get; set; }
     public MyAttribute(bool b) { }
+}
+
+public enum E { A = 42 }
+
+public class ArgsAttribute : Attribute
+{
+    public object[] Prop { get; set; }
+    public ArgsAttribute(int i, object o, Type t, E e, int[] arr) { }
+}
+
+[Args(42, null, typeof(X), E.A, new int[] { 1, 2, 3 }, Prop = new object[] { 1, typeof(int) })]
+public class X
+{
+    [Args(42 + 0, new int[] { 1, 2, 3 }, null, (E)12, null, Prop = new object[] { 1, typeof(int) })]
+    [return: Args(42 + 0, new int[] { 1, 2, 3 }, null, (E)12, null, Prop = new object[] { 1, typeof(int) })]
+    int SomeMethod() { return 1; }
+}
+
+class My2Attribute : Attribute
+{
+    public int X { get; set; }
+    public My2Attribute(bool a, bool b, int i = 12, int j = 13) { }
+}
+
+class My3Attribute : Attribute
+{
+    public My3Attribute(int x) { }
+}
+
+[My3Attribute(1)]
+[return: My3Attribute(2)]
+delegate int My1Delegate(string message);
+
+[return: My3Attribute(3)]
+[type: My3Attribute(4)]
+delegate string My2Delegate(string message);
+
+public class MyAttributeUsage
+{
+    [My3Attribute(5)]
+    [return: My3Attribute(6)]
+    public static int operator +(MyAttributeUsage a, MyAttributeUsage b) => 0;
+
+    public int this[int x]
+    {
+        [My3Attribute(7)]
+        [return: My3Attribute(8)]
+        get { return x + 1; }
+
+        [method: My3Attribute(9)]
+        [param: My3Attribute(10)]
+        set { return; }
+    }
+
+    private int p;
+    public int Prop1
+    {
+        [method: My3Attribute(11)]
+        [return: My3Attribute(12)]
+        get { return p; }
+
+        [My3Attribute(13)]
+        [param: My3Attribute(14)]
+        set { p = value; }
+    }
 }

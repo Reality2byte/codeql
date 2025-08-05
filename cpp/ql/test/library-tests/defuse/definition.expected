@@ -1,5 +1,6 @@
 | addressOf.cpp:23:9:23:9 | i | addressOf.cpp:24:22:24:30 | call to move |
 | addressOf.cpp:23:9:23:9 | i | addressOf.cpp:25:25:25:26 | & ... |
+| addressOf.cpp:23:9:23:9 | i | addressOf.cpp:26:31:26:32 | & ... |
 | addressOf.cpp:31:23:31:23 | i | addressOf.cpp:32:18:32:19 | & ... |
 | addressOf.cpp:31:23:31:23 | i | addressOf.cpp:34:18:34:33 | ... ? ... : ... |
 | addressOf.cpp:31:23:31:23 | i | addressOf.cpp:35:18:35:23 | & ... |
@@ -11,12 +12,14 @@
 | addressOf.cpp:31:23:31:23 | i | addressOf.cpp:38:20:38:25 | ... += ... |
 | addressOf.cpp:40:8:40:11 | iref | addressOf.cpp:40:15:40:15 | i |
 | addressOf.cpp:40:8:40:11 | iref | addressOf.cpp:42:18:42:22 | & ... |
-| addressOf.cpp:47:8:47:9 | f1 | addressOf.cpp:47:13:47:31 | [...](...){...} |
-| addressOf.cpp:49:8:49:9 | f2 | addressOf.cpp:49:13:49:39 | [...](...){...} |
+| addressOf.cpp:47:8:47:9 | f1 | addressOf.cpp:47:12:47:31 | [...](...){...} |
+| addressOf.cpp:49:8:49:9 | f2 | addressOf.cpp:49:12:49:39 | [...](...){...} |
 | addressOf.cpp:56:7:56:7 | a | addressOf.cpp:56:13:56:28 | {...} |
 | addressOf.cpp:56:7:56:7 | a | addressOf.cpp:57:18:57:45 | ... + ... |
 | addressOf.cpp:56:7:56:7 | a | addressOf.cpp:58:18:58:18 | a |
 | addressOf.cpp:61:33:61:35 | ref | addressOf.cpp:63:24:63:26 | ref |
+| addressOf.cpp:76:7:76:7 | x | addressOf.cpp:76:10:76:11 | 0 |
+| addressOf.cpp:77:8:77:8 | y | addressOf.cpp:77:12:77:49 | ... + ... |
 | indirect_use.cpp:20:10:20:10 | p | indirect_use.cpp:20:14:20:15 | ip |
 | indirect_use.cpp:25:10:25:10 | p | indirect_use.cpp:25:14:25:19 | ... + ... |
 | indirect_use.cpp:25:10:25:10 | p | indirect_use.cpp:26:5:26:7 | ... -- |
@@ -75,6 +78,11 @@
 | pass_by_ref.cpp:46:7:46:7 | i | pass_by_ref.cpp:46:11:46:11 | n |
 | pass_by_ref.cpp:46:7:46:7 | i | pass_by_ref.cpp:49:5:49:7 | ... ++ |
 | pass_by_ref.cpp:46:7:46:7 | i | pass_by_ref.cpp:53:22:53:22 | i |
+| pass_by_ref.cpp:60:7:60:7 | x | pass_by_ref.cpp:60:10:60:11 | 2 |
+| pass_by_ref.cpp:60:7:60:7 | x | pass_by_ref.cpp:61:34:61:35 | & ... |
+| pass_by_ref.cpp:66:8:66:8 | p | pass_by_ref.cpp:66:12:66:18 | 0 |
+| pass_by_ref.cpp:74:7:74:7 | x | pass_by_ref.cpp:74:10:74:11 | 2 |
+| pass_by_ref.cpp:74:7:74:7 | x | pass_by_ref.cpp:75:35:75:36 | & ... |
 | test.cpp:4:7:4:7 | a | test.cpp:5:3:5:8 | ... = ... |
 | test.cpp:4:7:4:7 | a | test.cpp:13:3:13:7 | ... = ... |
 | test.cpp:4:7:4:7 | a | test.cpp:19:5:19:9 | ... = ... |

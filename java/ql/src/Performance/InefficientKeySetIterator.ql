@@ -37,14 +37,14 @@ predicate isKeyNext(Expr e, KeySetIterator it) {
     ma.getQualifier().(VarAccess).getVariable() = it
   )
   or
-  isKeyNext(e.(CastExpr).getExpr(), it)
+  isKeyNext(e.(CastingExpr).getExpr(), it)
 }
 
 class Key extends LocalVariableDecl {
   Key() {
-    exists(LocalVariableDeclExpr lvde, KeySetIterator it |
+    exists(LocalVariableDeclExpr lvde |
       lvde.getVariable() = this and
-      isKeyNext(lvde.getInit(), it)
+      isKeyNext(lvde.getInit(), _)
     )
   }
 
@@ -60,8 +60,6 @@ from MethodAccess ma, Method get
 where
   ma.getMethod() = get and
   get.hasName("get") and
-  ma.getAnArgument().(VarAccess).getVariable().(Key).getBase().getBase() = ma
-        .getQualifier()
-        .(VarAccess)
-        .getVariable()
+  ma.getAnArgument().(VarAccess).getVariable().(Key).getBase().getBase() =
+    ma.getQualifier().(VarAccess).getVariable()
 select ma, "Inefficient use of key set iterator instead of entry set iterator."

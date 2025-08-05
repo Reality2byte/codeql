@@ -4,6 +4,7 @@
  *              user to change the meaning of the command.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 9.8
  * @precision high
  * @id js/command-line-injection
  * @tags correctness
@@ -13,14 +14,19 @@
  */
 
 import javascript
-import semmle.javascript.security.dataflow.CommandInjection::CommandInjection
+import semmle.javascript.security.dataflow.CommandInjectionQuery
 import DataFlow::PathGraph
 
-from Configuration cfg, DataFlow::PathNode source, DataFlow::PathNode sink, DataFlow::Node highlight
+from
+  Configuration cfg, DataFlow::PathNode source, DataFlow::PathNode sink, DataFlow::Node highlight,
+  Source sourceNode
 where
   cfg.hasFlowPath(source, sink) and
-  if cfg.isSinkWithHighlight(sink.getNode(), _)
-  then cfg.isSinkWithHighlight(sink.getNode(), highlight)
-  else highlight = sink.getNode()
-select highlight, source, sink, "This command depends on $@.", source.getNode(),
-  "a user-provided value"
+  (
+    if cfg.isSinkWithHighlight(sink.getNode(), _)
+    then cfg.isSinkWithHighlight(sink.getNode(), highlight)
+    else highlight = sink.getNode()
+  ) and
+  sourceNode = source.getNode()
+select highlight, source, sink, "This command line depends on a $@.", source.getNode(),
+  "user-provided value"

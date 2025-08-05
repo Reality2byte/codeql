@@ -1,12 +1,12 @@
+using System.IO;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Semmle.Extraction.Kinds;
-using System.IO;
 
 namespace Semmle.Extraction.CSharp.Entities.Statements
 {
-    class Empty : Statement<EmptyStatementSyntax>
+    internal class Empty : Statement<EmptyStatementSyntax>
     {
-        Empty(Context cx, EmptyStatementSyntax block, IStatementParentEntity parent, int child)
+        private Empty(Context cx, EmptyStatementSyntax block, IStatementParentEntity parent, int child)
             : base(cx, block, StmtKind.EMPTY, parent, child) { }
 
         public static Empty Create(Context cx, EmptyStatementSyntax node, IStatementParentEntity parent, int child)

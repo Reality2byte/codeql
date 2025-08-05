@@ -4,6 +4,7 @@
  *              overflows.
  * @kind path-problem
  * @problem.severity warning
+ * @security-severity 8.6
  * @precision medium
  * @id java/uncontrolled-arithmetic
  * @tags security
@@ -12,67 +13,26 @@
  */
 
 import java
-import semmle.code.java.dataflow.TaintTracking
-import semmle.code.java.security.SecurityTests
-import ArithmeticCommon
-import DataFlow::PathGraph
+import semmle.code.java.dataflow.DataFlow
+import semmle.code.java.security.ArithmeticCommon
+import semmle.code.java.security.ArithmeticUncontrolledQuery
 
-class TaintSource extends DataFlow::ExprNode {
-  TaintSource() {
-    // Either this is an access to a random number generating method of the right kind, ...
-    exists(Method def |
-      def = this.getExpr().(MethodAccess).getMethod() and
-      (
-        // Some random-number methods are omitted:
-        // `nextDouble` and `nextFloat` are between 0 and 1,
-        // `nextGaussian` is extremely unlikely to hit max values.
-        def.getName() = "nextInt" or
-        def.getName() = "nextLong"
-      ) and
-      def.getNumberOfParameters() = 0 and
-      def.getDeclaringType().hasQualifiedName("java.util", "Random")
-    )
-    or
-    // ... or this is the array parameter of `nextBytes`, which is filled with random bytes.
-    exists(MethodAccess m, Method def |
-      m.getAnArgument() = this.getExpr() and
-      m.getMethod() = def and
-      def.getName() = "nextBytes" and
-      def.getNumberOfParameters() = 1 and
-      def.getDeclaringType().hasQualifiedName("java.util", "Random")
-    )
-  }
-}
+module Flow =
+  DataFlow::MergePathGraph<ArithmeticUncontrolledOverflowFlow::PathNode,
+    ArithmeticUncontrolledUnderflowFlow::PathNode, ArithmeticUncontrolledOverflowFlow::PathGraph,
+    ArithmeticUncontrolledUnderflowFlow::PathGraph>;
 
-class ArithmeticUncontrolledOverflowConfig extends TaintTracking::Configuration {
-  ArithmeticUncontrolledOverflowConfig() { this = "ArithmeticUncontrolledOverflowConfig" }
+import Flow::PathGraph
 
-  override predicate isSource(DataFlow::Node source) { source instanceof TaintSource }
-
-  override predicate isSink(DataFlow::Node sink) { overflowSink(_, sink.asExpr()) }
-
-  override predicate isSanitizer(DataFlow::Node n) { overflowBarrier(n) }
-}
-
-class ArithmeticUncontrolledUnderflowConfig extends TaintTracking::Configuration {
-  ArithmeticUncontrolledUnderflowConfig() { this = "ArithmeticUncontrolledUnderflowConfig" }
-
-  override predicate isSource(DataFlow::Node source) { source instanceof TaintSource }
-
-  override predicate isSink(DataFlow::Node sink) { underflowSink(_, sink.asExpr()) }
-
-  override predicate isSanitizer(DataFlow::Node n) { underflowBarrier(n) }
-}
-
-from DataFlow::PathNode source, DataFlow::PathNode sink, ArithExpr exp, string effect
+from Flow::PathNode source, Flow::PathNode sink, ArithExpr exp, string effect
 where
-  any(ArithmeticUncontrolledOverflowConfig c).hasFlowPath(source, sink) and
+  ArithmeticUncontrolledOverflowFlow::flowPath(source.asPathNode1(), sink.asPathNode1()) and
   overflowSink(exp, sink.getNode().asExpr()) and
   effect = "overflow"
   or
-  any(ArithmeticUncontrolledUnderflowConfig c).hasFlowPath(source, sink) and
+  ArithmeticUncontrolledUnderflowFlow::flowPath(source.asPathNode2(), sink.asPathNode2()) and
   underflowSink(exp, sink.getNode().asExpr()) and
   effect = "underflow"
 select exp, source, sink,
-  "$@ flows to here and is used in arithmetic, potentially causing an " + effect + ".",
-  source.getNode(), "Uncontrolled value"
+  "This arithmetic expression depends on an $@, potentially causing an " + effect + ".",
+  source.getNode(), "uncontrolled value"

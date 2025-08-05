@@ -885,15 +885,24 @@ void FuncPtrConversions(int(*pfn)(int), void* p) {
   pfn = (int(*)(int))p;
 }
 
+void VAListUsage(int x, __builtin_va_list args) {
+  __builtin_va_list args2;
+  __builtin_va_copy(args2, args);
+  double d = __builtin_va_arg(args, double);
+  float f = __builtin_va_arg(args, int);
+  __builtin_va_end(args2);
+}
+
 void VarArgUsage(int x, ...) {
   __builtin_va_list args;
 
   __builtin_va_start(args, x);
   __builtin_va_list args2;
-  __builtin_va_start(args2, args);
+  __builtin_va_copy(args2, args);
   double d = __builtin_va_arg(args, double);
-  float f = __builtin_va_arg(args, float);
+  float f = __builtin_va_arg(args, int);
   __builtin_va_end(args);
+  VAListUsage(x, args2);
   __builtin_va_end(args2);
 }
 
@@ -988,7 +997,7 @@ int PointerDecay(int a[], int fn(float)) {
   return a[0] + fn(1.0);
 }
 
-int ExprStmt(int b, int y, int z) {
+int StmtExpr(int b, int y, int z) {
   int x = ({
     int w;
     if (b) {
@@ -1101,12 +1110,12 @@ int AsmStmt(int x) {
   return x;
 }
 
-static void AsmStmtWithOutputs(unsigned int& a, unsigned int& b, unsigned int& c, unsigned int& d)
+static void AsmStmtWithOutputs(unsigned int& a, unsigned int b, unsigned int& c, unsigned int d)
 {
   __asm__ __volatile__
     (
   "cpuid\n\t"
-    : "+a" (a), "+b" (b), "+c" (c), "+d" (d)
+    : "+a" (a), "+b" (b) : "c" (c), "d" (d)
     );
 }
 
@@ -1156,6 +1165,943 @@ void VectorTypes(int i) {
   vi4[i] = x;
   vector(4, int) vi4_shuffle = __builtin_shufflevector(vi4, vi4, 3+0, 2, 1, 0);
   vi4 = vi4 + vi4_shuffle;
+}
+
+void *memcpy(void *dst, void *src, int size);
+
+int ModeledCallTarget(int x) {
+  int y;
+  memcpy(&y, &x, sizeof(int));
+  return y;
+}
+
+String ReturnObjectImpl() {
+  return String("foo");
+}
+
+void switch1Case(int x) {
+    int y = 0;
+    switch(x) {
+        case 1:
+        y = 2;
+    }
+    int z = y;
+}
+
+void switch2Case_fallthrough(int x) {
+    int y = 0;
+    switch(x) {
+        case 1:
+        y = 2;
+        case 2:
+        y = 3;
+    }
+    int z = y;
+}
+
+void switch2Case(int x) {
+    int y = 0;
+    switch(x) {
+        case 1:
+        y = 2;
+        break;
+        case 2:
+        y = 3;
+    }
+    int z = y;
+}
+
+void switch2Case_default(int x) {
+    int y = 0;
+    switch(x) {
+        case 1:
+            y = 2;
+            break;
+
+        case 2:
+            y = 3;
+            break;
+
+        default:
+            y = 4;
+    }
+    int z = y;
+}
+
+int staticLocalInit(int x) {
+    static int a = 0;  // Constant initialization
+    static int b = sizeof(x);  // Constant initialization
+    static int c = x;  // Dynamic initialization
+    static int d;  // Zero initialization
+
+    return a + b + c + d;
+}
+
+void staticLocalWithConstructor(const char* dynamic) {
+    static String a;
+    static String b("static");
+    static String c(dynamic);
+}
+
+// --- strings ---
+
+char *strcpy(char *destination, const char *source);
+char *strcat(char *destination, const char *source);
+
+void test_strings(char *s1, char *s2) {
+    char buffer[1024] = {0};
+
+    strcpy(buffer, s1);
+    strcat(buffer, s2);
+}
+
+struct A {
+    int member;
+
+    static void static_member(A* a, int x) {
+        a->member = x;
+    }
+
+    static void static_member_without_def();
+};
+
+A* getAnInstanceOfA();
+
+void test_static_member_functions(int int_arg, A* a_arg) {
+    C c;
+    c.StaticMemberFunction(10);
+    C::StaticMemberFunction(10);
+
+    A a;
+    a.static_member(&a, int_arg);
+    A::static_member(&a, int_arg);
+
+    (&a)->static_member(a_arg, int_arg + 2);
+    (*a_arg).static_member(&a, 99);
+    a_arg->static_member(a_arg, -1);
+
+    a.static_member_without_def();
+    A::static_member_without_def();
+
+    getAnInstanceOfA()->static_member_without_def();
+}
+
+int missingReturnValue(bool b, int x) {
+    if (b) {
+        return x;
+    }
+}
+
+void returnVoid(int x, int y) {
+    return IntegerOps(x, y);
+}
+
+void gccBinaryConditional(bool b, int x, long y) {
+    int z = x;
+    z = b ?: x;
+    z = b ?: y;
+    z = x ?: x;
+    z = x ?: y;
+    z = y ?: x;
+    z = y ?: y;
+
+    z = (x && b || y) ?: x;
+}
+
+bool predicateA();
+bool predicateB();
+
+int shortCircuitConditional(int x, int y) {
+    return predicateA() && predicateB() ? x : y;
+}
+
+void *operator new(size_t, void *) noexcept;
+
+void f(int* p)
+{
+  new (p) int;
+}
+
+template<typename T>
+T defaultConstruct() {
+    return T();
+}
+
+class constructor_only {
+public:
+    int x;
+
+public:
+    constructor_only(int x);
+};
+
+class copy_constructor {
+public:
+    int y;
+
+public:
+    copy_constructor();
+    copy_constructor(const copy_constructor&);
+
+    void method();
+};
+
+class destructor_only {
+public:
+    ~destructor_only();
+
+    void method();
+};
+
+template<typename T>
+void acceptRef(const T& v);
+
+template<typename T>
+void acceptValue(T v);
+
+template<typename T>
+T returnValue();
+
+void temporary_string() {
+    String s = returnValue<String>();  // No temporary
+    const String& rs = returnValue<String>();  // Binding a reference variable to a temporary
+
+    acceptRef(s);  // No temporary
+    acceptRef<String>("foo");  // Binding a const reference to a temporary
+    acceptValue(s);
+    acceptValue<String>("foo");
+    String().c_str();
+    returnValue<String>().c_str();  // Member access on a temporary
+
+    defaultConstruct<String>();
+}
+
+void temporary_destructor_only() {
+    destructor_only d = returnValue<destructor_only>();
+    const destructor_only& rd = returnValue<destructor_only>();
+    destructor_only d2;
+    acceptRef(d);
+    acceptValue(d);
+    destructor_only().method();
+    returnValue<destructor_only>().method();
+
+    defaultConstruct<destructor_only>();
+}
+
+void temporary_copy_constructor() {
+    copy_constructor d = returnValue<copy_constructor>();
+    const copy_constructor& rd = returnValue<copy_constructor>();
+    copy_constructor d2;
+    acceptRef(d);
+    acceptValue(d);
+    copy_constructor().method();
+    returnValue<copy_constructor>().method();
+    defaultConstruct<copy_constructor>();
+
+    int y = returnValue<copy_constructor>().y;
+}
+
+void temporary_point() {
+    Point p = returnValue<Point>();  // No temporary
+    const Point& rp = returnValue<Point>();  // Binding a reference variable to a temporary
+
+    acceptRef(p);  // No temporary
+    acceptValue(p);
+    Point().x;
+    int y = returnValue<Point>().y;
+
+    defaultConstruct<Point>();
+}
+
+struct UnusualFields {
+    int& r;
+    float a[10];
+};
+
+void temporary_unusual_fields() {
+    const int& rx = returnValue<UnusualFields>().r;
+    int x = returnValue<UnusualFields>().r;
+
+    const float& rf = returnValue<UnusualFields>().a[3];
+    float f = returnValue<UnusualFields>().a[5];
+}
+
+struct POD_Base {
+    int x;
+
+    float f() const;
+};
+
+struct POD_Middle : POD_Base {
+    int y;
+};
+
+struct POD_Derived : POD_Middle {
+    int z;
+};
+
+void temporary_hierarchy() {
+    POD_Base b = returnValue<POD_Middle>();
+    b = (returnValue<POD_Derived>());  // Multiple conversions plus parens
+    int x = returnValue<POD_Derived>().x;
+    float f = (returnValue<POD_Derived>()).f();
+}
+
+struct Inheritance_Test_B {
+  ~Inheritance_Test_B() {}
+};
+
+struct Inheritance_Test_A : public Inheritance_Test_B {
+  int x;
+  int y;
+  Inheritance_Test_A() : x(42) {
+    y = 3;
+  }
+};
+
+void array_structured_binding() {
+    int xs[2] = {1, 2};
+    // structured binding use
+    {
+        auto& [x0, x1] = xs;
+        x1 = 3;
+        int &rx1 = x1;
+        int x = x1;
+    }
+    // explicit reference version
+    {
+        auto& unnamed_local_variable = xs;
+        auto& x0 = unnamed_local_variable[0];
+        auto& x1 = unnamed_local_variable[1];
+        x1 = 3;
+        int &rx1 = x1;
+        int x = x1;
+    }
+}
+
+struct StructuredBindingDataMemberMemberStruct {
+    int x = 5;
+};
+
+struct StructuredBindingDataMemberStruct {
+    typedef int ArrayType[2];
+    typedef int &RefType;
+    int i = 1;
+    double d = 2.0;
+    unsigned int b : 3;
+    int& r = i;
+    int* p = &i;
+    ArrayType xs = {1, 2};
+    RefType r_alt = i;
+    StructuredBindingDataMemberMemberStruct m;
+};
+
+void data_member_structured_binding() {
+    StructuredBindingDataMemberStruct s;
+    // structured binding use
+    {
+        auto [i, d, b, r, p, xs, r_alt, m] = s;
+        d = 4.0;
+        double& rd = d;
+        int v = i;
+        r = 5;
+        *p = 6;
+        int& rr = r;
+        int* pr = &r;
+        int w = r;
+    }
+    // explicit reference version
+    {
+        auto unnamed_local_variable = s;
+        auto& i = unnamed_local_variable.i;
+        auto& d = unnamed_local_variable.d;
+        // no equivalent for b
+        auto& r = unnamed_local_variable.r;
+        auto& p = unnamed_local_variable.p;
+        d = 4.0;
+        double& rd = d;
+        int v = i;
+        r = 5;
+        *p = 6;
+        int& rr = r;
+        int* pr = &r;
+        int w = r;
+    }
+}
+
+namespace std {
+    template<typename T>
+    struct tuple_size;
+    template<int, typename T>
+    struct tuple_element;
+}
+
+struct StructuredBindingTupleRefGet {
+    int i = 1;
+    double d = 2.2;
+    int& r = i;
+
+    template<int i>
+    typename std::tuple_element<i, StructuredBindingTupleRefGet>::type& get();
+};
+
+template<>
+struct std::tuple_size<StructuredBindingTupleRefGet> {
+    static const unsigned int value = 3;
+};
+
+template<>
+struct std::tuple_element<0, StructuredBindingTupleRefGet> {
+    using type = int;
+};
+template<>
+struct std::tuple_element<1, StructuredBindingTupleRefGet> {
+    using type = double;
+};
+template<>
+struct std::tuple_element<2, StructuredBindingTupleRefGet> {
+    using type = int&;
+};
+
+template<>
+std::tuple_element<0, StructuredBindingTupleRefGet>::type& StructuredBindingTupleRefGet::get<0>() {
+    return i;
+}
+template<>
+std::tuple_element<1, StructuredBindingTupleRefGet>::type& StructuredBindingTupleRefGet::get<1>() {
+    return d;
+}
+template<>
+std::tuple_element<2, StructuredBindingTupleRefGet>::type& StructuredBindingTupleRefGet::get<2>() {
+    return r;
+}
+
+void tuple_structured_binding_ref_get() {
+    StructuredBindingTupleRefGet t;
+    // structured binding use
+    {
+        auto [i, d, r] = t;
+        d = 4.0;
+        double& rd = d;
+        int v = i;
+        r = 5;
+        int& rr = r;
+        int w = r;
+    }
+    // explicit reference version
+    {
+        auto unnamed_local_variable = t;
+        auto& i = unnamed_local_variable.get<0>();
+        auto& d = unnamed_local_variable.get<1>();
+        auto& r = unnamed_local_variable.get<2>();
+        d = 4.0;
+        double& rd = d;
+        int v = i;
+        r = 5;
+        int& rr = r;
+        int w = r;
+    }
+}
+
+struct StructuredBindingTupleNoRefGet {
+    int i = 1;
+    int& r = i;
+
+    template<int i>
+    typename std::tuple_element<i, StructuredBindingTupleNoRefGet>::type get();
+};
+
+template<>
+struct std::tuple_size<StructuredBindingTupleNoRefGet> {
+    static const unsigned int value = 3;
+};
+
+template<>
+struct std::tuple_element<0, StructuredBindingTupleNoRefGet> {
+    using type = int;
+};
+template<>
+struct std::tuple_element<1, StructuredBindingTupleNoRefGet> {
+    using type = int&;
+};
+template<>
+struct std::tuple_element<2, StructuredBindingTupleNoRefGet> {
+    using type = int&&;
+};
+
+template<>
+std::tuple_element<0, StructuredBindingTupleNoRefGet>::type StructuredBindingTupleNoRefGet::get<0>() {
+    return i;
+}
+template<>
+std::tuple_element<1, StructuredBindingTupleNoRefGet>::type StructuredBindingTupleNoRefGet::get<1>() {
+    return r;
+}
+template<>
+std::tuple_element<2, StructuredBindingTupleNoRefGet>::type StructuredBindingTupleNoRefGet::get<2>() {
+    return 5;
+}
+
+void tuple_structured_binding_no_ref_get() {
+    StructuredBindingTupleNoRefGet t;
+    //structured binding use
+    {
+        auto&& [i, r, rv] = t;
+        i = 4;
+        int& ri = i;
+        int v = i;
+        r = 5;
+        int& rr = r;
+        int w = r;
+    }
+    // explicit reference version
+    {
+        auto&& unnamed_local_variable = t;
+        auto&& i = unnamed_local_variable.get<0>();
+        auto& r = unnamed_local_variable.get<1>();
+        auto&& rv = unnamed_local_variable.get<2>();
+        i = 4;
+        int& ri = i;
+        int v = i;
+        r = 5;
+        int& rr = r;
+        int w = r;
+    }
+}
+
+void array_structured_binding_non_ref_init() {
+    int xs[2] = {1, 2};
+    auto [x0, x1] = xs;
+}
+
+class CapturedLambdaMyObj
+{
+public:
+    CapturedLambdaMyObj() {}
+};
+
+void captured_lambda(int x, int &y, int &&z)
+{
+    const auto &obj1 = CapturedLambdaMyObj();
+    auto obj2 = CapturedLambdaMyObj();
+
+    auto lambda_outer = [obj1, obj2, x, y, z](){
+        auto lambda_inner = [obj1, obj2, x, y, z](){;};
+    };
+}
+
+int goto_on_same_line() {
+  int x = 42;
+  goto next; next:
+  return x;
+}
+
+class TrivialLambdaClass {
+public:
+    void m() const {
+        auto l_m_outer = [*this] {
+            m();
+
+            auto l_m_inner = [*this] {
+                m();
+            };
+        };
+    };
+};
+
+void captured_lambda2(TrivialLambdaClass p1, TrivialLambdaClass &p2, TrivialLambdaClass &&p3) {
+    const TrivialLambdaClass l1;
+    const TrivialLambdaClass &l2 = TrivialLambdaClass();
+
+    auto l_outer1 = [p1, p2, p3, l1, l2] {
+        auto l_inner1 = [p1] {};
+    };
+}
+
+class CopyConstructorWithImplicitArgumentClass {
+    int x;
+public:
+    CopyConstructorWithImplicitArgumentClass() {}
+    CopyConstructorWithImplicitArgumentClass(const CopyConstructorWithImplicitArgumentClass &c) {
+        x = c.x;
+    }
+};
+
+class CopyConstructorWithBitwiseCopyClass {
+    int y;
+public:
+    CopyConstructorWithBitwiseCopyClass() {}
+};
+
+class CopyConstructorTestNonVirtualClass :
+        public CopyConstructorWithImplicitArgumentClass,
+        public CopyConstructorWithBitwiseCopyClass {
+public:
+    CopyConstructorTestNonVirtualClass() {}
+};
+
+class CopyConstructorTestVirtualClass :
+        public virtual CopyConstructorWithImplicitArgumentClass,
+        public virtual CopyConstructorWithBitwiseCopyClass {
+public:
+    CopyConstructorTestVirtualClass() {}
+};
+
+int implicit_copy_constructor_test(
+        const CopyConstructorTestNonVirtualClass &x,
+        const CopyConstructorTestVirtualClass &y) {
+    CopyConstructorTestNonVirtualClass cx = x;
+    CopyConstructorTestVirtualClass cy = y;
+}
+
+void if_initialization(int x) {
+    if (int y = x; x + 1) {
+        x = x + y;
+    }
+
+    int w;
+    if (w = x; x + 1) {
+        x = x + w;
+    }
+
+    if (w = x; int w2 = w) {
+        x = x + w;
+    }
+
+    if (int v = x; int v2 = v) {
+        x = x + v;
+    }
+
+    int z = x;
+    if (z) {
+        x = x + z;
+    }
+
+    if (int z2 = z) {
+        x += z2;
+    }
+}
+
+void switch_initialization(int x) {
+    switch (int y = x; x + 1) {
+    default:
+        x = x + y;
+    }
+
+    int w;
+    switch (w = x; x + 1) {
+    default:
+        x = x + w;
+    }
+
+    switch (w = x; int w2 = w) {
+    default:
+        x = x + w;
+    }
+
+    switch (int v = x; int v2 = v) {
+    default:
+        x = x + v;
+    }
+
+    int z = x;
+    switch (z) {
+    default:
+        x = x + z;
+    }
+
+    switch (int z2 = z) {
+    default:
+        x += z2;
+    }
+}
+
+int global_1;
+
+int global_2 = 1;
+
+const int global_3 = 2;
+
+constructor_only global_4(1);
+
+constructor_only global_5 = constructor_only(2);
+
+char *global_string = "global string";
+
+int global_6 = global_2;
+
+namespace block_assignment {
+    class A {
+        enum {} e[1];
+        virtual void f();
+    };
+    
+    struct B : A {
+        B(A *);
+    };
+
+    void foo() {
+        B v(0);
+        v = 0;
+    }
+}
+
+void magicvars() {
+    const char *pf = __PRETTY_FUNCTION__;
+    const char *strfunc = __func__;
+}
+
+namespace missing_declaration_entries {
+    struct S {};
+
+    template<typename A, typename B> struct pair{};
+
+    template<typename T> struct Bar1 {
+        typedef S* pointer;
+
+        void* missing_type_decl_entry(pointer p) {
+            typedef pair<pointer, bool> _Res;
+            return p;
+        }
+    };
+
+    void test1() {
+        Bar1<int> b;
+        b.missing_type_decl_entry(nullptr);
+    }
+
+    template<typename T> struct Bar2 {
+
+        int two_missing_variable_declaration_entries() {
+            int x[10], y[10];
+            *x = 10;
+            *y = 10;
+            return *x + *y;
+        }
+    };
+
+    void test2() {
+        Bar2<int> b;
+        b.two_missing_variable_declaration_entries();
+    }
+}
+
+template<typename T> T global_template = 42;
+
+int test_global_template_int() {
+    int local_int = global_template<int>;
+    char local_char = global_template<char>;
+    return local_int + (int)local_char;
+}
+
+[[noreturn]] void noreturnFunc();
+
+int noreturnTest(int x) {
+    if (x < 10) {
+        return x;
+    } else {
+        noreturnFunc();
+    }
+}
+
+int noreturnTest2(int x) {
+    if (x < 10) {
+        noreturnFunc();
+    }
+    return x;
+}
+
+int static_function(int x) {
+    return x;
+}
+
+void test_static_functions_with_assignments() {
+    C c;
+    int x;
+    x = c.StaticMemberFunction(10);
+    int y;
+    y = C::StaticMemberFunction(10);
+    int z;
+    z = static_function(10);
+}
+
+void test_double_assign() {
+  int i, j;
+  i = j = 40;
+}
+
+void test_assign_with_assign_operation() {
+  int i, j = 0;
+  i = (j += 40);
+}
+
+class D {
+    static D x;
+
+public:
+    static D& ReferenceStaticMemberFunction() {
+        return x;
+    }
+    static D ObjectStaticMemberFunction() {
+        return x;
+    }
+};
+
+void test_static_member_functions_with_reference_return() {
+    D d;
+
+    d.ReferenceStaticMemberFunction();
+    D::ReferenceStaticMemberFunction();
+    d.ObjectStaticMemberFunction();
+    D::ObjectStaticMemberFunction();
+
+    D x;
+    x = d.ReferenceStaticMemberFunction();
+    D y;
+    y = D::ReferenceStaticMemberFunction();
+    D j;
+    j = d.ObjectStaticMemberFunction();
+    D k;
+    k = D::ObjectStaticMemberFunction();
+}
+
+void test_volatile() {
+    volatile int x;
+    x;
+}
+
+struct ValCat {
+  static ValCat& lvalue();
+  static ValCat&& xvalue();
+  static ValCat prvalue();
+};
+
+void value_category_test() {
+    ValCat c;
+
+    c.lvalue() = {};
+    c.xvalue() = {};
+    c.prvalue() = {};
+    ValCat::lvalue() = {};
+    ValCat::xvalue() = {};
+    ValCat::prvalue() = {};
+}
+
+void SetStaticFuncPtr() {
+    C c;
+    int (*pfn)(int) = C::StaticMemberFunction;
+    pfn = c.StaticMemberFunction;
+}
+
+void TernaryTestInt(bool a, int x, int y, int z) {
+    z = a ? x : y;
+    z = a ? x : 5;
+    z = a ? 3 : 5;
+    (a ? x : y) = 7;
+}
+
+struct TernaryPodObj {
+};
+
+void TernaryTestPodObj(bool a, TernaryPodObj x, TernaryPodObj y, TernaryPodObj z) {
+    z = a ? x : y;
+    z = a ? x : TernaryPodObj();
+    z = a ? TernaryPodObj() : TernaryPodObj();
+    (z = a ? x : y) = TernaryPodObj();
+}
+
+struct TernaryNonPodObj {
+    virtual ~TernaryNonPodObj() {}
+};
+
+void TernaryTestNonPodObj(bool a, TernaryNonPodObj x, TernaryNonPodObj y, TernaryNonPodObj z) {
+    z = a ? x : y;
+    z = a ? x : TernaryNonPodObj();
+    z = a ? TernaryNonPodObj() : TernaryNonPodObj();
+    (z = a ? x : y) = TernaryNonPodObj();
+}
+
+void CommaTestHelper(unsigned int);
+
+unsigned int CommaTest(unsigned int x) {
+  unsigned int y;
+  y = x < 100 ?
+    (CommaTestHelper(x), x) :
+    (CommaTestHelper(x), 10);
+}
+
+void NewDeleteMem() {
+  int* x = new int;  // No constructor
+  *x = 6;
+  delete x;
+}
+
+class Base2 {
+public:
+    void operator delete(void* p) {
+    }
+    virtual ~Base2() {};
+};
+
+class Derived2 : public Base2 {
+    int i;
+public:
+    ~Derived2() {};
+
+    void operator delete(void* p) {
+    }
+};
+
+// Delete is kind-of virtual in these cases
+int virtual_delete()
+{
+    Base2* b1 = new Base2{};
+    delete b1;
+
+    Base2* b2 = new Derived2{};
+    delete b2;
+
+    Derived2* d = new Derived2{};
+    delete d;
+}
+
+void test_constant_folding_use(int);
+
+void test_constant_folding() {
+  const int x = 116;
+  test_constant_folding_use(x);
+}
+
+void exit(int code);
+
+int NonExit() {
+    int x = Add(3,4);
+    if (x == 7)
+        exit(3);
+    VoidFunc();
+    return x;
+}
+
+void CallsNonExit() {
+    VoidFunc();
+    exit(3);
+}
+
+int TransNonExit() {
+    int x = Add(3,4);
+    if (x == 7)
+        CallsNonExit();
+    VoidFunc();
+    return x;
+}
+
+void newArrayCorrectType(size_t n) {
+  new int[n];  // No constructor
+  new(1.0f) int[n];  // Placement new, no constructor
+  new String[n];  // Constructor
+  new Overaligned[n];  // Aligned new
+  new DefaultCtorWithDefaultParam[n];
+  new int[n] { 0, 1, 2 };
 }
 
 // semmle-extractor-options: -std=c++17 --clang

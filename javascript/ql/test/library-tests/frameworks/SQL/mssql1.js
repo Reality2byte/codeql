@@ -6,9 +6,9 @@ async () => {
         const pool = await sql.connect('mssql://username:password@localhost/database')
         const result = await sql.query`select * from mytable where id = ${value}`
         console.dir(result)
+
+        sql.query('SELECT 123');
     } catch (err) {
         // ... error checks 
     }
 }
-
-// semmle-extractor-options: --experimental

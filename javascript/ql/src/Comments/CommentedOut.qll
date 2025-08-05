@@ -33,12 +33,7 @@ private string getALineOfCommentedOutCode(Comment c) {
  * disregarded when looking for commented-out code.
  */
 private predicate containsCodeExample(Comment c) {
-  exists(string text | text = c.getText() |
-    text.matches("%<pre>%</pre>%") or
-    text.matches("%<code>%</code>%") or
-    text.matches("%@example%") or
-    text.matches("%```%")
-  )
+  c.getText().matches(["%<pre>%</pre>%", "%<code>%</code>%", "%@example%", "%```%"])
 }
 
 /**
@@ -127,12 +122,12 @@ class CommentedOutCode extends Comment {
    * The location spans column `startcolumn` of line `startline` to
    * column `endcolumn` of line `endline` in file `filepath`.
    * For more information, see
-   * [Locations](https://help.semmle.com/QL/learn-ql/ql/locations.html).
+   * [Locations](https://codeql.github.com/docs/writing-codeql-queries/providing-locations-in-codeql-queries/).
    */
   predicate hasLocationInfo(
     string filepath, int startline, int startcolumn, int endline, int endcolumn
   ) {
-    exists(Location loc, File f | loc = getLocation() and f = loc.getFile() |
+    exists(Location loc, File f | loc = this.getLocation() and f = loc.getFile() |
       filepath = f.getAbsolutePath() and
       startline = loc.getStartLine() and
       startcolumn = loc.getStartColumn() and

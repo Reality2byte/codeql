@@ -1,6 +1,6 @@
 /**
  * @name Return value of a function is ignored
- * @description A call to a function ignores its return value, but more than 80% of the total number of calls to the function check the return value. Check the return value of functions consistently, especially for functions like 'fread' or the 'scanf' functions that return the status of the operation.
+ * @description A call to a function ignores its return value, but at least 90% of the total number of calls to the function check the return value. Check the return value of functions consistently, especially for functions like 'fread' or the 'scanf' functions that return the status of the operation.
  * @kind problem
  * @id cpp/return-value-ignored
  * @problem.severity recommendation
@@ -23,7 +23,8 @@ predicate important(Function f, string message) {
 predicate dubious(Function f, string message) {
   not important(f, _) and
   exists(Options opts, int used, int total, int percentage |
-    used = count(FunctionCall fc |
+    used =
+      count(FunctionCall fc |
         fc.getTarget() = f and not opts.okToIgnoreReturnValue(fc) and not unused(fc)
       ) and
     total = count(FunctionCall fc | fc.getTarget() = f and not opts.okToIgnoreReturnValue(fc)) and

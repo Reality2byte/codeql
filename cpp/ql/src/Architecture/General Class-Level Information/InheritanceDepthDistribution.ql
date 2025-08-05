@@ -4,9 +4,6 @@
  * @kind chart
  * @id cpp/architecture/inheritance-depth-distribution
  * @chart.type line
- * @workingset jhotdraw
- * @result succeed 48
- * @result_ondemand succeed 48
  * @tags maintainability
  */
 
@@ -19,5 +16,5 @@ predicate hasInheritanceDepth(Class c, int d) {
 
 from int depth
 where hasInheritanceDepth(_, depth)
-select depth as InheritanceDepth, count(Class c | hasInheritanceDepth(c, depth)) as NumberOfClasses
-  order by InheritanceDepth
+select depth as inheritanceDepth, count(Class c | hasInheritanceDepth(c, depth)) as numberOfClasses
+  order by inheritanceDepth

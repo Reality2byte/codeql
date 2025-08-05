@@ -1,3 +1,6 @@
+import java.util.Random;
+import org.apache.commons.lang3.RandomUtils;
+
 public class A {
   private static final int[] arr1 = new int[] { 1, 2, 3, 4, 5, 6, 7, 8 };
   private final int[] arr2;
@@ -5,7 +8,7 @@ public class A {
 
   public A(int[] arr2, int n) {
     if (arr2.length % 2 != 0)
-      throw new Exception();
+      throw new Error();
     this.arr2 = arr2;
     this.arr3 = new int[n << 1];
   }
@@ -168,11 +171,44 @@ public class A {
     if (n > 0) {
       a = n > 0 ? new int[3 * n] : null;
     }
-    int sum;
+    int sum = 0;
     if (a != null) {
       for (int i = 0; i < a.length; i += 3) {
         sum += a[i + 2]; // OK
       }
     }
+  }
+
+  void m14(int[] xs) {
+    for (int i = 0; i < xs.length + 1; i++) {
+      if (i == 0 && xs.length > 0) {
+        xs[i]++; // OK - FP
+      }
+    }
+  }
+
+  void m15(int[] xs) {
+    for (int i = 0; i < xs.length; i++) {
+      int x = ++i;
+      int y = ++i;
+      if (y < xs.length) {
+        xs[x]++; // OK - FP
+        xs[y]++; // OK
+      }
+    }
+  }
+
+  static int m16() {
+    return A.arr1[(new Random()).nextInt(arr1.length + 1)] +  // BAD: random int may be out of range
+      A.arr1[(new Random()).nextInt(arr1.length)] + // GOOD: random int must be in range
+      A.arr1[RandomUtils.nextInt(0, arr1.length + 1)] + // BAD: random int may be out of range
+      A.arr1[RandomUtils.nextInt(0, arr1.length)]; // GOOD: random int must be in range
+  }
+
+  int m17() {
+    return this.arr2[(new Random()).nextInt(arr2.length + 1)] +  // BAD: random int may be out of range
+      this.arr2[(new Random()).nextInt(arr2.length)] + // GOOD: random int must be in range
+      this.arr2[RandomUtils.nextInt(0, arr2.length + 1)] + // BAD: random int may be out of range
+      this.arr2[RandomUtils.nextInt(0, arr2.length)]; // GOOD: random int must be in range
   }
 }

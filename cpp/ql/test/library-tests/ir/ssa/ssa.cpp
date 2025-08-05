@@ -139,7 +139,7 @@ void MergeMustExactlyWithMustTotallyOverlap(bool c, Point p, int x1) {
   else {
     a = p;
   }
-  int x = a.x;  // Only one reaching def must exactly overlap, but we should still get a Phi for it.
+  int x = a.x;  // Only one (non-Chi) reaching def must exactly overlap, but we should still get a Phi for it.
 }
 
 void MergeMustExactlyWithMayPartiallyOverlap(bool c, Point p, int x1) {
@@ -200,4 +200,241 @@ int PureFunctions(char *str1, char *str2, int x) {
   ret += strlen(str1);
   ret += abs(x);
   return ret;
+}
+
+void *memcpy(void *dst, void *src, int size);
+
+int ModeledCallTarget(int x) {
+  int y;
+  memcpy(&y, &x, sizeof(int));
+  return y;
+}
+
+void InitArray() {
+    char a_pad[32] = ""; 
+    char a_nopad[4] = "foo";
+    char a_infer[] = "blah";
+    char b[2];
+    char c[2] = {};
+    char d[2] = { 0 };
+    char e[2] = { 0, 1 };
+    char f[3] = { 0 };
+}
+
+extern void ExternalFunc();
+
+char StringLiteralAliasing() {
+  ExternalFunc();
+
+  const char* s = "Literal";
+  return s[2];  // Should be defined by `AliasedDefinition`, not `Chi` or `CallSideEffect`.
+}
+
+class Constructible {
+  public:
+    Constructible(int x) {};
+    void g() {}
+};
+
+void ExplicitConstructorCalls() {
+  Constructible c(1);
+  c.g();
+  c.g();
+  Constructible c2 = Constructible(2);
+  c2.g();
+}
+
+char *VoidStarIndirectParameters(char *src, int size) {
+  char *dst = new char[size];
+  *src = 'a';
+  memcpy(dst, src, size);
+  return dst;
+}
+
+char StringLiteralAliasing2(bool b) {
+  if (b) {
+    ExternalFunc();
+  }
+  else {
+    ExternalFunc();
+  }
+
+  const char* s = "Literal";
+  return s[2];
+}
+
+void *malloc(int size);
+
+void *MallocAliasing(void *s, int size) {
+  void *buf = malloc(size);
+  memcpy(buf, s, size);
+  return buf;
+}
+
+Point *pp;
+void EscapedButNotConflated(bool c, Point p, int x1) {
+  Point a = {};
+  pp = &a; // `a` escapes here and therefore belongs to the aliased vvar
+  if (c) {
+    a.x = x1;
+  }
+  int x = a.x; // The phi node here is not conflated
+}
+
+struct A {
+  int i;
+  A(int x) {}
+  A(A*) {}
+  A() {}
+};
+
+Point *NewAliasing(int x) {
+  Point* p = new Point;
+  Point* q = new Point;
+  int j = (new A(new A(x)))->i;
+  A* a = new A;
+  return p;
+}
+
+void unknownFunction(int argc, char **argv);
+
+int main(int argc, char **argv) {
+  unknownFunction(argc, argv);
+  unknownFunction(argc, argv);
+  return **argv; // Chi chain goes through side effects from unknownFunction
+}
+
+class ThisAliasTest {
+  int x, y;
+  
+  void setX(int arg) {
+    this->x = arg;
+  }
+};
+
+void sink(char **);
+void sink(char *);
+
+// This test case comes from DefaultTaintTracking.
+void DoubleIndirectionEscapes(char *s)
+{
+	char buffer[1024];
+	char *ptr1, **ptr2;
+	char *ptr3, **ptr4;
+
+	ptr1 = buffer;
+	ptr2 = &ptr1;
+	memcpy(*ptr2, s, 1024);
+
+	sink(buffer); // $ MISSING: ast,ir
+	sink(ptr1); // $ ast MISSING: ir
+	sink(ptr2); // $ SPURIOUS: ast
+	sink(*ptr2); // $ ast MISSING: ir
+}
+
+int UnreachablePhiOperand(int x, int y) {
+  bool b = true;
+  int ret;
+
+  if(b) {
+    ret = x;
+  } else {
+    ret = y;
+  }
+
+  return ret;
+}
+
+int UnreachablePhiOperand2(int x, int y, int z, bool b1) {
+  bool b2 = true;
+  int ret;
+
+  if(b1) {
+    ret = x;
+  } else {
+    if(b2) {
+      ret = y;
+    } else {
+      ret = z;
+    }
+  }
+
+  return ret;
+}
+
+int DegeneratePhi(int x, int y, bool b1) {
+  bool b2 = true;
+  int ret1;
+  int ret2 = x;
+
+  if(b1) {
+    ret1 = x;
+  } else {
+    if(b2) {
+      ret1 = x;
+    } else {
+      ret2 = y;
+    }
+  }
+
+  return ret1 + ret2;
+}
+
+int FusedBlockPhiOperand(int x, int y, int z, bool b1) {
+  bool b2 = true;
+  int ret;
+
+  if(b1) {
+    ret = x;
+  } else {
+    if(b2) {
+      ret = y;
+    } else {
+      ret = z;
+    }
+    ; // creates a NoOp instruction with its own basic block
+  }
+
+  return ret;
+}
+
+void vla(int n1, int n2, int n3, bool b1) {
+  int b[n1];
+  int c[n1][n2];
+
+  *b = 0;
+  b[0] = 1;
+
+  **(c + 1) = 0;
+
+  if(b1) {
+    int b[n1];
+  } else {
+    int b[n2];
+  }
+}
+
+void nested_array_designators() {
+  int x[1][2] = {[0][0] = 1234, [0][1] = 5678};
+}
+
+[[noreturn]] void noreturnFunc();
+
+int noreturnTest(int x) {
+    if (x < 10) {
+        return x;
+    } else {
+        noreturnFunc();
+    }
+}
+
+int noreturnTest2(int x) {
+    if (x < 10) {
+        noreturnFunc();
+    }
+    return x;
+}
+
+void Conditional(bool a, int x, int y) {
+    int z = a ? x : y;
 }

@@ -5,6 +5,7 @@
  *              a specific value to terminate the argument list.
  * @kind problem
  * @problem.severity warning
+ * @security-severity 8.8
  * @precision medium
  * @id cpp/unterminated-variadic-call
  * @tags reliability
@@ -20,9 +21,7 @@ import cpp
  * trailing `".0"` then it is removed. This means that, for example,
  * the values of `-1` and `-1.0` would be considered the same.
  */
-string normalisedExprValue(Expr e) {
-  result = e.getValue().regexpReplaceAll("\\.0$", "")
-}
+string normalisedExprValue(Expr e) { result = e.getValue().regexpReplaceAll("\\.0$", "") }
 
 /**
  * A variadic function which is not a formatting function.
@@ -42,9 +41,8 @@ class VarargsFunction extends Function {
     result = normalisedExprValue(this.trailingArgumentIn(fc))
   }
 
-  private
-  int trailingArgValueCount(string value) {
-    result = strictcount(FunctionCall fc | trailingArgValue(fc) = value)
+  private int trailingArgValueCount(string value) {
+    result = strictcount(FunctionCall fc | this.trailingArgValue(fc) = value)
   }
 
   string nonTrailingVarArgValue(FunctionCall fc, int index) {
@@ -54,35 +52,30 @@ class VarargsFunction extends Function {
     result = normalisedExprValue(fc.getArgument(index))
   }
 
-  private
-  int totalCount() {
+  private int totalCount() {
     result = strictcount(FunctionCall fc | fc = this.getACallToThisFunction())
   }
 
-  string normalTerminator(int cnt) {
-    (
-      result = "0" or result = "-1"
-    ) and (
-      cnt = trailingArgValueCount(result)
-    ) and (
-      2 * cnt > totalCount()
-    ) and not exists(FunctionCall fc, int index |
-      // terminator value is used in a non-terminating position
-      nonTrailingVarArgValue(fc, index) = result
-    )
+  string normalTerminator(int cnt, int totalCount) {
+    // the terminator is 0 or -1
+    result = ["0", "-1"] and
+    // at least 80% of calls have the terminator
+    cnt = this.trailingArgValueCount(result) and
+    totalCount = this.totalCount() and
+    100 * cnt / totalCount >= 80 and
+    // terminator value is not used in a non-terminating position
+    not this.nonTrailingVarArgValue(_, _) = result
   }
 
-  predicate isWhitelisted() {
-    this.hasGlobalName("open") or
-    this.hasGlobalName("fcntl") or
-    this.hasGlobalName("ptrace")
-  }
+  predicate isWhitelisted() { this.hasGlobalName(["open", "fcntl", "ptrace", "mremap"]) }
 }
 
-from VarargsFunction f, FunctionCall fc, string terminator, int cnt
-where terminator = f.normalTerminator(cnt)
-  and fc = f.getACallToThisFunction()
-  and not normalisedExprValue(f.trailingArgumentIn(fc)) = terminator
-  and not f.isWhitelisted()
-select fc, "Calls to $@ should use the value " + terminator
-         + " as a terminator (" + cnt + " calls do).", f, f.getQualifiedName()
+from VarargsFunction f, FunctionCall fc, string terminator, int cnt, int totalCount
+where
+  terminator = f.normalTerminator(cnt, totalCount) and
+  fc = f.getACallToThisFunction() and
+  not normalisedExprValue(f.trailingArgumentIn(fc)) = terminator and
+  not f.isWhitelisted()
+select fc,
+  "Calls to $@ should use the value " + terminator + " as a terminator (" + cnt + " of " +
+    totalCount + " calls do).", f, f.getQualifiedName()

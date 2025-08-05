@@ -3,6 +3,7 @@
  * @description Tracks the return value of an HTML sanitizer into an escape-sequence decoder,
  *              indicating an ineffective sanitization attempt.
  * @kind path-problem
+ * @problem.severity error
  * @tags security
  * @id js/examples/decoding-after-sanitization-generalized
  */
@@ -17,12 +18,11 @@ import DataFlow::PathGraph
  */
 class DecodingCall extends CallNode {
   string kind;
-
   Node input;
 
   DecodingCall() {
-    getCalleeName().matches("decodeURI%") and
-    input = getArgument(0) and
+    this.getCalleeName().matches("decodeURI%") and
+    input = this.getArgument(0) and
     kind = "URI decoding"
     or
     input = this.(JsonParserCall).getInput() and
@@ -48,5 +48,5 @@ from DecodingAfterSanitization cfg, PathNode source, PathNode sink, DecodingCall
 where
   cfg.hasFlowPath(source, sink) and
   decoder.getInput() = sink.getNode()
-select sink.getNode(), source, sink,
-  decoder.getKind() + " invalidates the HTML sanitization performed $@.", source.getNode(), "here"
+select sink.getNode(), source, sink, decoder.getKind() + " invalidates $@.", source.getNode(),
+  "this HTML sanitization"

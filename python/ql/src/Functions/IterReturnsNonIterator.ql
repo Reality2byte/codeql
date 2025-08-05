@@ -1,6 +1,6 @@
 /**
- * @name __iter__ method returns a non-iterator
- * @description The '__iter__' method returns a non-iterator which, if used in a 'for' loop, would raise a 'TypeError'.
+ * @name `__iter__` method returns a non-iterator
+ * @description The `__iter__` method returns a non-iterator which, if used in a 'for' loop, would raise a 'TypeError'.
  * @kind problem
  * @tags reliability
  *       correctness
@@ -12,21 +12,12 @@
 
 import python
 
-FunctionObject iter_method(ClassObject t) {
-		result = t.lookupAttribute("__iter__")
-}
-
-cached ClassObject return_type(FunctionObject f) {
-    exists(ControlFlowNode n, Return ret |
-        ret.getScope() = f.getFunction() and ret.getValue() = n.getNode() and
-        n.refersTo(_, result, _)
-    )
-}
-
-from ClassObject t, FunctionObject iter
-where exists(ClassObject ret_t | iter = iter_method(t) and
-          ret_t = return_type(iter) and
-          not ret_t.isIterator()
-      )
-
-select iter, "The '__iter__' method of iterable class $@ does not return an iterator.", t, t.getName()
+from ClassValue iterable, FunctionValue iter, ClassValue iterator
+where
+  iter = iterable.lookup("__iter__") and
+  iterator = iter.getAnInferredReturnType() and
+  not iterator.isIterator()
+select iterator,
+  "Class " + iterator.getName() +
+    " is returned as an iterator (by $@) but does not fully implement the iterator interface.",
+  iter, iter.getName()

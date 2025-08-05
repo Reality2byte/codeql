@@ -114,4 +114,4 @@ x ?? y;                           // flow through short-circuiting operator
 
 Array.call()  // flow from implicit call to `Array` to `Array.call`
 
-// semmle-extractor-options: --experimental
+var x2 = Object.seal(x1) // flow through identity function

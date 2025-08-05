@@ -12,20 +12,15 @@
 import cpp
 
 predicate allowedTypedefs(TypedefType t) {
-  exists(string name | name = t.getName() |
-    name = "I64" or name = "U64" or
-    name = "I32" or name = "U32" or
-    name = "I16" or name = "U16" or
-    name = "I8" or name = "U8" or
-    name = "F64" or name = "F32"
-  )
+  t.getName() = ["I64", "U64", "I32", "U32", "I16", "U16", "I8", "U8", "F64", "F32"]
 }
 
 /**
  * Gets a type which appears literally in the declaration of `d`.
  */
 Type getAnImmediateUsedType(Declaration d) {
-  d.isDefined() and (
+  d.hasDefinition() and
+  (
     result = d.(Function).getType() or
     result = d.(Variable).getType()
   )
@@ -48,7 +43,11 @@ predicate problematic(IntegralType t) {
 }
 
 from Declaration d, Type usedType
-where usedType = getAUsedType*(getAnImmediateUsedType(d)) and problematic(usedType)
+where
+  usedType = getAUsedType*(getAnImmediateUsedType(d)) and
+  problematic(usedType) and
   // Ignore violations for which we do not have a valid location.
-  and not(d.getLocation() instanceof UnknownLocation)
-select d, d.getName() + " uses the basic integral type " + usedType.getName() + " rather than a typedef with size and signedness."
+  not d.getLocation() instanceof UnknownLocation
+select d,
+  d.getName() + " uses the basic integral type " + usedType.getName() +
+    " rather than a typedef with size and signedness."

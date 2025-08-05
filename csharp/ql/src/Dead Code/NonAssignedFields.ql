@@ -34,15 +34,14 @@ ValueOrRefType getAReferencedType(Type t) {
 
 predicate isTypeExternallyInitialized(ValueOrRefType t) {
   // The type got created via a call to PtrToStructure().
-  exists(MethodCall mc |
+  exists(MethodCall mc, Type t0, Expr arg |
     mc.getTarget() = any(SystemRuntimeInteropServicesMarshalClass c).getPtrToStructureTypeMethod() and
-    t = getAReferencedType(mc.getArgument(1).(TypeofExpr).getTypeAccess().getTarget())
-  )
-  or
-  // The type got created via a call to PtrToStructure().
-  exists(MethodCall mc |
-    mc.getTarget() = any(SystemRuntimeInteropServicesMarshalClass c).getPtrToStructureObjectMethod() and
-    t = getAReferencedType(mc.getArgument(1).getType())
+    t = getAReferencedType(t0) and
+    arg = mc.getArgument(1)
+  |
+    t0 = arg.(TypeofExpr).getTypeAccess().getTarget()
+    or
+    t0 = arg.getType()
   )
   or
   // An extern method exists which could initialize the type.
@@ -86,32 +85,31 @@ where
   not f.getType() instanceof Struct and
   not exists(Assignment ae, Field g |
     ae.getLValue().(FieldAccess).getTarget() = g and
-    g.getSourceDeclaration() = f and
+    g.getUnboundDeclaration() = f and
     not ae.getRValue() instanceof NullLiteral
   ) and
   not exists(MethodCall mc, int i, Field g |
     exists(Parameter p | mc.getTarget().getParameter(i) = p | p.isOut() or p.isRef()) and
     mc.getArgument(i) = g.getAnAccess() and
-    g.getSourceDeclaration() = f
+    g.getUnboundDeclaration() = f
   ) and
   not isFieldExternallyInitialized(f) and
   not exists(f.getAnAttribute()) and
   not exists(Expr init, Field g |
-    g.getSourceDeclaration() = f and
+    g.getUnboundDeclaration() = f and
     g.getInitializer() = init and
     not init instanceof NullLiteral
   ) and
   not exists(AssignOperation ua, Field g |
     ua.getLValue().(FieldAccess).getTarget() = g and
-    g.getSourceDeclaration() = f
+    g.getUnboundDeclaration() = f
   ) and
   not exists(MutatorOperation op |
-    op.getAnOperand().(FieldAccess).getTarget().getSourceDeclaration() = f
+    op.getAnOperand().(FieldAccess).getTarget().getUnboundDeclaration() = f
   ) and
   exists(Field g |
     fa.getTarget() = g and
-    g.getSourceDeclaration() = f
+    g.getUnboundDeclaration() = f
   )
-select f,
-  "The field '" + f.getName() + "' is never explicitly assigned a value, yet it is read $@.", fa,
-  "here"
+select f, "The field '" + f.getName() + "' is never explicitly assigned a value, yet $@.", fa,
+  "the field is read"

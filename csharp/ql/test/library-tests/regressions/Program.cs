@@ -1,5 +1,3 @@
-
-
 using System;
 using System.Threading.Tasks;
 
@@ -87,7 +85,7 @@ class WhileIs
     void Test()
     {
         object x = null;
-        while(x is string s)
+        while (x is string s)
         {
             var y = s;
         }
@@ -116,7 +114,7 @@ class LiteralConversions
 
     void F()
     {
-        new Point { x=1, y=2 };
+        new Point { x = 1, y = 2 };
     }
 }
 
@@ -130,20 +128,20 @@ class DynamicType
 
 class LocalVariableTags
 {
-    Func<int, int> F = x => { int y=x; return y; };
+    Func<int, int> F = x => { int y = x; return y; };
 
     private static Func<object, string, object> _getter => (o, n) =>
     {
-         object x = o;
-         return x;
+        object x = o;
+        return x;
     };
 }
 
-partial class C1<T> where T: DynamicType
+partial class C1<T> where T : DynamicType
 {
 }
 
-partial class C1<T> where T: DynamicType
+partial class C1<T> where T : DynamicType
 {
 }
 
@@ -166,18 +164,33 @@ unsafe class ArrayTypesTest
 
 class NameofNamespace
 {
-    string s = nameof(System);
+    string s = nameof(System) + nameof(System.Threading.Tasks);
 }
 
 class UsingDiscard
 {
     void F()
     {
-        foreach(var _ in new IDisposable[] { })
-            using(_)
+        foreach (var _ in new IDisposable[] { })
+            using (_)
             {
             }
     }
 }
 
-// semmle-extractor-options: /r:System.Dynamic.Runtime.dll
+class TupleMatching
+{
+    (int, object) G(object o1, object o2)
+    {
+        (object, object)? pair = (o1, o2);
+        return (0, pair is var (x, y) ? x : null);
+    }
+}
+
+class C2<T> { }
+
+class C3<T> : C2<C4<T>> { }
+
+class C4<T> : C2<C3<T>> { }
+
+class C5 : C4<C5> { }

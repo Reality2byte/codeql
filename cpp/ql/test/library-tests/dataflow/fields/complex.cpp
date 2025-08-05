@@ -22,6 +22,12 @@ public:
   Bar() : f(0, 0) {}
 };
 
+class Outer
+{
+public:
+  Bar inner;
+};
+
 int user_input()
 {
   return 42;
@@ -31,23 +37,23 @@ void sink(int x)
 {
 }
 
-void bar(Bar &b)
+void bar(Outer &b)
 {
-  sink(b.f.a()); // flow (through `b1.f.setA` and `b3.f.setA`) [NOT DETECTED]
-  sink(b.f.b()); // flow (through `b2.f.setB` and `b3.f.setB`) [NOT DETECTED]
+  sink(b.inner.f.a()); // $ ast=53:19 ast=55:19 ir=53:19 ir=55:19
+  sink(b.inner.f.b()); // $ ast=54:19 ast=56:19 ir=54:19 ir=56:19
 }
 
 void foo()
 {
-  Bar b1;
-  Bar b2;
-  Bar b3;
-  Bar b4;
+  Outer b1;
+  Outer b2;
+  Outer b3;
+  Outer b4;
 
-  b1.f.setA(user_input());
-  b2.f.setB(user_input());
-  b3.f.setA(user_input());
-  b3.f.setB(user_input());
+  b1.inner.f.setA(user_input());
+  b2.inner.f.setB(user_input());
+  b3.inner.f.setA(user_input());
+  b3.inner.f.setB(user_input());
 
   // Only a() should alert
   bar(b1);

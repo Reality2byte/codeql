@@ -1,15 +1,16 @@
-var express = require('express'),
-    path = require('path'),
-var app = express();
+var app = require("express")(),
+  path = require("path");
 
-app.get('/user-files', function(req, res) {
-    var file = req.param('file');
-    if (typeof path !== 'string' || path.indexOf('..') !== -1) { // GOOD
-        // forbid paths outside the /public directory
-        res.status(400).send('Bad request');
-    } else {
-        var full = path.resolve('/public/' + file);
-        console.log("Sending file: %s", full);
-        res.sendFile(full);
-    }
+app.get("/user-files", function(req, res) {
+  var file = req.param("file");
+  if (typeof file !== 'string' || file.indexOf("..") !== -1) {
+    // GOOD
+    // we forbid relative paths that contain ..
+    // as these could leave the public directory
+    res.status(400).send("Bad request");
+  } else {
+    var absolute = path.resolve("/public/" + file);
+    console.log("Sending file: %s", absolute);
+    res.sendFile(absolute);
+  }
 });

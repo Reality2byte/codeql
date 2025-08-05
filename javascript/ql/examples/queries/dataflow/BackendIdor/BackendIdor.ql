@@ -3,6 +3,7 @@
  * @description Finds cases where the 'userId' field in a request to another service
  *              is an arbitrary user-controlled value, indicating lack of authentication.
  * @kind path-problem
+ * @problem.severity error
  * @tags security
  * @id js/examples/backend-idor
  */
@@ -12,7 +13,7 @@ import DataFlow
 import DataFlow::PathGraph
 
 /**
- * Tracks user-controlled values into a 'userId' property sent to a backend service.
+ * A taint-tracking configuration that tracks user-controlled values into a 'userId' property sent to a backend service.
  */
 class IdorTaint extends TaintTracking::Configuration {
   IdorTaint() { this = "IdorTaint" }
@@ -33,7 +34,7 @@ class IdorTaint extends TaintTracking::Configuration {
 }
 
 /**
- * Sanitize values that have succesfully been compared to another value.
+ * A sanitizer for values that have successfully been compared to another value.
  */
 class EqualityGuard extends TaintTracking::SanitizerGuardNode, ValueNode {
   override EqualityTest astNode;

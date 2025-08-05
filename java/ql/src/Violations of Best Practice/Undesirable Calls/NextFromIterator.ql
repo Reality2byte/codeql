@@ -16,14 +16,11 @@ from MethodAccess m
 where
   m.getMethod().hasName("next") and
   m.getMethod().getNumberOfParameters() = 0 and
-  (
-    not m.hasQualifier() or
-    m.getQualifier() instanceof ThisAccess
-  ) and
+  m.isOwnMethodAccess() and
   exists(Interface i, Method hasNext |
     i.getSourceDeclaration().hasQualifiedName("java.util", "Iterator") and
     m.getEnclosingCallable() = hasNext and
-    hasNext.getDeclaringType().getSourceDeclaration().getASupertype*() = i and
+    hasNext.getDeclaringType().getSourceDeclaration().getAnAncestor() = i and
     hasNext.hasName("hasNext")
   )
-select m, "next() called from within an Iterator method."
+select m, "This calls 'next()' from within an Iterator method."

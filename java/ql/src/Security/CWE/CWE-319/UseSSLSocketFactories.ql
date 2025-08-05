@@ -4,6 +4,7 @@
  *              third parties.
  * @kind problem
  * @problem.severity recommendation
+ * @security-severity 7.5
  * @precision medium
  * @id java/non-ssl-socket-factory
  * @tags security
@@ -64,7 +65,7 @@ predicate query(MethodAccess m, Method def, int paramNo, string message, Element
     // an SSL factory, ...
     usesFactory(def, paramNo) and
     evidence = m.getArgument(paramNo) and
-    not evidence.(Expr).getType() instanceof SSLClass and
+    not evidence.(Expr).getType() instanceof SslClass and
     message = "has a non-SSL factory argument "
     or
     // ... or there is an overloaded method on the same type that does take a factory,

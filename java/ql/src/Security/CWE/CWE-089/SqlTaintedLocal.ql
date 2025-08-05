@@ -4,31 +4,21 @@
  *              malicious code by the user.
  * @kind path-problem
  * @problem.severity recommendation
+ * @security-severity 8.8
  * @precision medium
  * @id java/sql-injection-local
  * @tags security
  *       external/cwe/cwe-089
+ *       external/cwe/cwe-564
  */
 
-import semmle.code.java.Expr
-import semmle.code.java.dataflow.FlowSources
-import SqlInjectionLib
-import DataFlow::PathGraph
-
-class LocalUserInputToQueryInjectionFlowConfig extends TaintTracking::Configuration {
-  LocalUserInputToQueryInjectionFlowConfig() { this = "LocalUserInputToQueryInjectionFlowConfig" }
-
-  override predicate isSource(DataFlow::Node src) { src instanceof LocalUserInput }
-
-  override predicate isSink(DataFlow::Node sink) { sink instanceof QueryInjectionSink }
-
-  override predicate isSanitizer(DataFlow::Node node) {
-    node.getType() instanceof PrimitiveType or node.getType() instanceof BoxedType
-  }
-}
+import java
+import semmle.code.java.security.SqlTaintedLocalQuery
+import LocalUserInputToQueryInjectionFlow::PathGraph
 
 from
-  DataFlow::PathNode source, DataFlow::PathNode sink, LocalUserInputToQueryInjectionFlowConfig conf
-where conf.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "Query might include code from $@.", source.getNode(),
-  "this user input"
+  LocalUserInputToQueryInjectionFlow::PathNode source,
+  LocalUserInputToQueryInjectionFlow::PathNode sink
+where LocalUserInputToQueryInjectionFlow::flowPath(source, sink)
+select sink.getNode(), source, sink, "This query depends on a $@.", source.getNode(),
+  "user-provided value"

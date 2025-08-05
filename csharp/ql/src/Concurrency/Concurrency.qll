@@ -1,68 +1,78 @@
-// Various utilities for writing concurrency queries.
+/** Classes for concurrency queries. */
+
 import csharp
 
-class WaitCall extends MethodCall {
+private class WaitCall extends MethodCall {
   WaitCall() {
-    getTarget().hasName("Wait") and
-    getTarget().getDeclaringType().hasQualifiedName("System.Threading.Monitor")
+    this.getTarget().hasName("Wait") and
+    this.getTarget().getDeclaringType().hasQualifiedName("System.Threading", "Monitor")
   }
 
-  Expr getExpr() { result = getArgument(0) }
+  Expr getExpr() { result = this.getArgument(0) }
 }
 
+/** An expression statement containing a `Wait` call. */
 class WaitStmt extends ExprStmt {
-  WaitStmt() { getExpr() instanceof WaitCall }
+  WaitStmt() { this.getExpr() instanceof WaitCall }
 
-  Expr getLock() { result = getExpr().(WaitCall).getExpr() }
+  /** Gets the expression that this wait call is waiting on. */
+  Expr getLock() { result = this.getExpr().(WaitCall).getExpr() }
 
-  // If we are waiting on a variable
-  Variable getWaitVariable() { result.getAnAccess() = getLock() }
+  /** Gets the variable that this wait call is waiting on, if any. */
+  Variable getWaitVariable() { result.getAnAccess() = this.getLock() }
 
-  // If we are waiting on 'this'
-  predicate isWaitThis() { getLock() instanceof ThisAccess }
+  /** Holds if this wait call waits on `this`. */
+  predicate isWaitThis() { this.getLock() instanceof ThisAccess }
 
-  // If we are waiting on a typeof()
-  Type getWaitTypeObject() { result = getLock().(TypeofExpr).getTypeAccess().getTarget() }
+  /** Gets the type that this wait call waits on, if any. */
+  Type getWaitTypeObject() { result = this.getLock().(TypeofExpr).getTypeAccess().getTarget() }
 }
 
-class SynchronizedMethodAttribute extends Attribute {
+private class SynchronizedMethodAttribute extends Attribute {
   SynchronizedMethodAttribute() {
-    getType().hasQualifiedName("System.Runtime.CompilerServices.MethodImplAttribute") and
+    this.getType().hasQualifiedName("System.Runtime.CompilerServices", "MethodImplAttribute") and
     exists(MemberConstantAccess a, MemberConstant mc |
-      a = getArgument(0) and
+      a = this.getArgument(0) and
       a.getTarget() = mc and
       mc.hasName("Synchronized") and
-      mc.getDeclaringType().hasQualifiedName("System.Runtime.CompilerServices.MethodImplOptions")
+      mc.getDeclaringType().hasQualifiedName("System.Runtime.CompilerServices", "MethodImplOptions")
     )
   }
 }
 
-// A method with attribute [MethodImpl(MethodImplOptions.Synchronized)]
-class SynchronizedMethod extends Method {
-  SynchronizedMethod() { getAnAttribute() instanceof SynchronizedMethodAttribute }
+/** A method with attribute `[MethodImpl(MethodImplOptions.Synchronized)]`. */
+private class SynchronizedMethod extends Method {
+  SynchronizedMethod() { this.getAnAttribute() instanceof SynchronizedMethodAttribute }
 
-  predicate isLockThis() { not isStatic() }
+  /** Holds if this method locks `this`. */
+  predicate isLockThis() { not this.isStatic() }
 
-  Type getLockTypeObject() { isStatic() and result = getDeclaringType() }
+  /** Gets the type that is locked by this method, if any. */
+  Type getLockTypeObject() { this.isStatic() and result = this.getDeclaringType() }
 }
 
+/** A block that is locked by a `lock` statement. */
 abstract class LockedBlock extends BlockStmt {
+  /** Holds if the `lock` statement locks `this`. */
   abstract predicate isLockThis();
 
+  /** Gets the lock variable of the `lock` statement, if any. */
   abstract Variable getLockVariable();
 
+  /** Gets the locked type of the `lock` statement, if any. */
   abstract Type getLockTypeObject();
 
+  /** Gets a statement in the scope of this locked block. */
   Stmt getALockedStmt() {
     // Do this instead of getParent+, because we don't want to escape
     // delegates and lambdas
     result.getParent() = this
     or
-    exists(Stmt mid | mid = getALockedStmt() and result.getParent() = mid)
+    exists(Stmt mid | mid = this.getALockedStmt() and result.getParent() = mid)
   }
 }
 
-class LockStmtBlock extends LockedBlock {
+private class LockStmtBlock extends LockedBlock {
   LockStmtBlock() { exists(LockStmt s | this = s.getBlock()) }
 
   override predicate isLockThis() { exists(LockStmt s | this = s.getBlock() and s.isLockThis()) }
@@ -76,12 +86,11 @@ class LockStmtBlock extends LockedBlock {
   }
 }
 
-/**
- * A call which may take a lock using one of the standard library classes.
- */
+/** A call that may take a lock using one of the standard library methods. */
 class LockingCall extends MethodCall {
   LockingCall() {
-    this.getTarget() = any(Method m |
+    this.getTarget() =
+      any(Method m |
         m.getDeclaringType().hasQualifiedName("System.Threading", "Monitor") and
         m.getName().matches("%Enter%")
       ) or
@@ -90,7 +99,7 @@ class LockingCall extends MethodCall {
   }
 }
 
-class SynchronizedMethodBlock extends LockedBlock {
+private class SynchronizedMethodBlock extends LockedBlock {
   SynchronizedMethodBlock() { exists(SynchronizedMethod m | this = m.getStatementBody()) }
 
   override predicate isLockThis() {

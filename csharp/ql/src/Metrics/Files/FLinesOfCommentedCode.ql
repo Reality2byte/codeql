@@ -5,7 +5,6 @@
  * @treemap.warnOn highValues
  * @metricType file
  * @metricAggregate avg sum max
- * @precision high
  * @id cs/lines-of-commented-out-code-in-files
  * @tags maintainability
  *       documentation
@@ -15,7 +14,8 @@ import csharp
 
 from SourceFile f, int n
 where
-  n = count(CommentLine line |
+  n =
+    count(CommentLine line |
       exists(CommentBlock block |
         block.getLocation().getFile() = f and
         line = block.getAProbableCodeLine()

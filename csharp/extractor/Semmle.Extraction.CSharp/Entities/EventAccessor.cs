@@ -1,65 +1,72 @@
-using Microsoft.CodeAnalysis;
 using System.IO;
+using Microsoft.CodeAnalysis;
 
 namespace Semmle.Extraction.CSharp.Entities
 {
-    class EventAccessor : Accessor
+    internal class EventAccessor : Method
     {
-        EventAccessor(Context cx, IMethodSymbol init)
-            : base(cx, init) { }
+        private readonly IEventSymbol @event;
+
+        private EventAccessor(Context cx, IMethodSymbol init, IEventSymbol @event)
+            : base(cx, init)
+        {
+            this.@event = @event;
+        }
 
         /// <summary>
-        /// Gets the event symbol associated with this accessor.
+        /// Gets the event symbol associated with accessor `symbol`, or `null`
+        /// if there is no associated symbol.
         /// </summary>
-        IEventSymbol EventSymbol => symbol.AssociatedSymbol as IEventSymbol;
+        public static IEventSymbol? GetEventSymbol(IMethodSymbol symbol) =>
+            symbol.AssociatedSymbol as IEventSymbol;
 
         public override void Populate(TextWriter trapFile)
         {
             PopulateMethod(trapFile);
-            ContainingType.PopulateGenerics();
-
-            var @event = EventSymbol;
-            if (@event == null)
-            {
-                Context.ModelError(symbol, "Unhandled event accessor associated symbol");
-                return;
-            }
+            ContainingType!.PopulateGenerics();
 
             var parent = Event.Create(Context, @event);
             int kind;
             EventAccessor unboundAccessor;
-            if (symbol.Equals(@event.AddMethod))
+            if (SymbolEqualityComparer.Default.Equals(Symbol, @event.AddMethod))
             {
                 kind = 1;
-                unboundAccessor = Create(Context, @event.OriginalDefinition.AddMethod);
+                var orig = @event.OriginalDefinition;
+                unboundAccessor = Create(Context, orig.AddMethod!, orig);
             }
-            else if (symbol.Equals(@event.RemoveMethod))
+            else if (SymbolEqualityComparer.Default.Equals(Symbol, @event.RemoveMethod))
             {
                 kind = 2;
-                unboundAccessor = Create(Context, @event.OriginalDefinition.RemoveMethod);
+                var orig = @event.OriginalDefinition;
+                unboundAccessor = Create(Context, orig.RemoveMethod!, orig);
             }
             else
             {
-                Context.ModelError(symbol, "Undhandled event accessor kind");
+                Context.ModelError(Symbol, $"Unhandled event accessor kind {Symbol.ToDisplayString()}");
                 return;
             }
 
-            trapFile.event_accessors(this, kind, symbol.Name, parent, unboundAccessor);
+            trapFile.event_accessors(this, kind, Symbol.Name, parent, unboundAccessor);
 
             foreach (var l in Locations)
                 trapFile.event_accessor_location(this, l);
 
             Overrides(trapFile);
+
+            if (Symbol.FromSource() && Block is null)
+            {
+                trapFile.compiler_generated(this);
+            }
         }
 
-        public new static EventAccessor Create(Context cx, IMethodSymbol symbol) =>
-            EventAccessorFactory.Instance.CreateEntity(cx, symbol);
+        public static EventAccessor Create(Context cx, IMethodSymbol symbol, IEventSymbol @event) =>
+            EventAccessorFactory.Instance.CreateEntity(cx, symbol, (symbol, @event));
 
-        class EventAccessorFactory : ICachedEntityFactory<IMethodSymbol, EventAccessor>
+        private class EventAccessorFactory : CachedEntityFactory<(IMethodSymbol, IEventSymbol), EventAccessor>
         {
-            public static readonly EventAccessorFactory Instance = new EventAccessorFactory();
+            public static EventAccessorFactory Instance { get; } = new EventAccessorFactory();
 
-            public EventAccessor Create(Context cx, IMethodSymbol init) => new EventAccessor(cx, init);
+            public override EventAccessor Create(Context cx, (IMethodSymbol, IEventSymbol) init) => new EventAccessor(cx, init.Item1, init.Item2);
         }
     }
 }

@@ -1,7 +1,7 @@
 #10000=@"/bom.ts;sourcefile"
-files(#10000,"/bom.ts","bom","ts",0)
+files(#10000,"/bom.ts")
 #10001=@"/;folder"
-folders(#10001,"/","")
+folders(#10001,"/")
 containerparent(#10001,#10000)
 #10002=@"loc,{#10000},0,0,0,0"
 locations_default(#10002,#10000,0,0,0,0)
@@ -31,12 +31,12 @@ hasLocation(#20001,#20007)
 #20008=*
 stmts(#20008,2,#20001,0,"42")
 hasLocation(#20008,#20003)
-stmtContainers(#20008,#20001)
+stmt_containers(#20008,#20001)
 #20009=*
 exprs(#20009,3,#20008,0,"42")
 hasLocation(#20009,#20003)
-enclosingStmt(#20009,#20008)
-exprContainers(#20009,#20001)
+enclosing_stmt(#20009,#20008)
+expr_containers(#20009,#20001)
 literals("42","42",#20009)
 #20010=*
 entry_cfg_node(#20010,#20001)

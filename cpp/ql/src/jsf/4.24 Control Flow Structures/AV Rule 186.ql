@@ -8,24 +8,23 @@
  *       useless-code
  *       external/jsf
  */
+
 import cpp
 
 // whether f is to be considered an API entry point, and hence reachable by default
-predicate isAPI(Function f) {
-     f.hasName("main")
-  or f.(MemberFunction).hasSpecifier("public")
+predicate isApi(Function f) {
+  f.hasName("main") or
+  f.(MemberFunction).hasSpecifier("public")
 }
 
 predicate unusedFunction(Function f) {
-  not isAPI(f) and
+  not isApi(f) and
   not exists(FunctionCall c | c.getTarget() = f) and
   not exists(Access acc | acc.getTarget() = f) and
   f.hasDefinition()
 }
 
-predicate unreachableStmt(Stmt s) {
-  not s.getControlFlowScope().getBlock().getASuccessor*() = s
-}
+predicate unreachableStmt(Stmt s) { not s.getControlFlowScope().getBlock().getASuccessor*() = s }
 
 from ControlFlowNode n
 where unreachableStmt(n) or unusedFunction(n)

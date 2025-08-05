@@ -31,29 +31,30 @@ class StaticCall extends Call {
 }
 
 /** Holds `t` has instance callable `c` as a member, with name `name`. */
-pragma[noinline]
+pragma[nomagic]
 predicate hasInstanceCallable(ValueOrRefType t, InstanceCallable c, string name) {
   t.hasMember(c) and
-  name = c.getName()
+  name = c.getUndecoratedName()
 }
 
 /** Holds if extension method `m` is a method on `t` with name `name`. */
-pragma[noinline]
+pragma[nomagic]
 predicate hasExtensionMethod(ValueOrRefType t, ExtensionMethod m, string name) {
   t.isImplicitlyConvertibleTo(m.getExtendedType()) and
-  name = m.getName()
+  name = m.getUndecoratedName()
 }
 
 /** Holds `t` has static callable `c` as a member, with name `name`. */
 pragma[noinline]
 predicate hasStaticCallable(ValueOrRefType t, StaticCallable c, string name) {
   t.hasMember(c) and
-  name = c.getName()
+  name = c.getUndecoratedName()
 }
 
 /** Gets the minimum number of arguments required to call `c`. */
 int getMinimumArguments(Callable c) {
-  result = count(Parameter p |
+  result =
+    count(Parameter p |
       p = c.getAParameter() and
       not p.hasDefaultValue()
     )
@@ -75,7 +76,6 @@ private class ConstructorCall extends Call {
 /** An explicit upcast. */
 class ExplicitUpcast extends ExplicitCast {
   ValueOrRefType src;
-
   ValueOrRefType dest;
 
   ExplicitUpcast() {
@@ -86,14 +86,19 @@ class ExplicitUpcast extends ExplicitCast {
     src != dest // Handled by `cs/useless-cast-to-self`
   }
 
-  /** Holds if this upcast is the argument of a call to `target`. */
-  private predicate isArgument(Call c, Callable target) {
+  pragma[nomagic]
+  private predicate isArgument(Type t) {
     exists(Parameter p |
       this = p.getAnAssignedArgument() and
-      p.getType() = this.getType() and
-      c.getAnArgument() = this and
-      target = c.getTarget()
+      t = p.getType()
     )
+  }
+
+  /** Holds if this upcast is the argument of a call to `target`. */
+  private predicate isArgument(Call c, Callable target) {
+    this.isArgument(this.getType()) and
+    c.getAnArgument() = this and
+    target = c.getTarget()
   }
 
   /** Holds if this upcast may be used to disambiguate the target of an instance call. */
@@ -101,7 +106,7 @@ class ExplicitUpcast extends ExplicitCast {
   private predicate isDisambiguatingInstanceCall(InstanceCallable other, int args) {
     exists(Call c, InstanceCallable target, ValueOrRefType t | this.isArgument(c, target) |
       t = c.(QualifiableExpr).getQualifier().getType() and
-      hasInstanceCallable(t, other, target.getName()) and
+      hasInstanceCallable(t, other, target.getUndecoratedName()) and
       args = c.getNumberOfArguments() and
       other != target
     )
@@ -115,7 +120,7 @@ class ExplicitUpcast extends ExplicitCast {
     |
       not c.isOrdinaryStaticCall() and
       t = target.getParameter(0).getType() and
-      hasExtensionMethod(t, other, target.getName()) and
+      hasExtensionMethod(t, other, target.getUndecoratedName()) and
       args = c.getNumberOfArguments() and
       other != target
     )
@@ -126,7 +131,7 @@ class ExplicitUpcast extends ExplicitCast {
     StaticCall c, StaticCallable target, string name, ValueOrRefType t
   ) {
     this.isArgument(c, target) and
-    name = target.getName() and
+    name = target.getUndecoratedName() and
     (
       t = c.(QualifiableExpr).getQualifier().getType()
       or
@@ -183,7 +188,8 @@ class ExplicitUpcast extends ExplicitCast {
     or
     this = any(OperatorCall oc).getAnArgument()
     or
-    this = any(Operation o |
+    this =
+      any(Operation o |
         not o instanceof Assignment and
         not o instanceof UnaryBitwiseOperation and
         not o instanceof SizeofExpr and
@@ -198,6 +204,8 @@ class ExplicitUpcast extends ExplicitCast {
     this = any(LocalVariableDeclAndInitExpr decl | decl.isImplicitlyTyped()).getInitializer()
     or
     exists(LambdaExpr c | c.canReturn(this))
+    or
+    dest instanceof DynamicType
   }
 }
 

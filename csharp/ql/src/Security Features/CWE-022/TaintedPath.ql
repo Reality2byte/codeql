@@ -3,6 +3,7 @@
  * @description Accessing paths influenced by users can allow an attacker to access unexpected resources.
  * @kind path-problem
  * @problem.severity error
+ * @security-severity 7.5
  * @precision high
  * @id cs/path-injection
  * @tags security
@@ -14,10 +15,10 @@
  */
 
 import csharp
-import semmle.code.csharp.security.dataflow.TaintedPath::TaintedPath
-import semmle.code.csharp.dataflow.DataFlow::DataFlow::PathGraph
+import semmle.code.csharp.security.dataflow.TaintedPathQuery
+import TaintedPath::PathGraph
 
-from TaintTrackingConfiguration c, DataFlow::PathNode source, DataFlow::PathNode sink
-where c.hasFlowPath(source, sink)
-select sink.getNode(), source, sink, "$@ flows to here and is used in a path.", source.getNode(),
-  "User-provided value"
+from TaintedPath::PathNode source, TaintedPath::PathNode sink
+where TaintedPath::flowPath(source, sink)
+select sink.getNode(), source, sink, "This path depends on a $@.", source.getNode(),
+  "user-provided value"

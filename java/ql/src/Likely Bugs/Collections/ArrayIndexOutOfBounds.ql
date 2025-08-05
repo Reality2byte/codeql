@@ -9,6 +9,7 @@
  * @tags reliability
  *       correctness
  *       exceptions
+ *       external/cwe/cwe-193
  */
 
 import java
@@ -42,6 +43,15 @@ predicate boundedArrayAccess(ArrayAccess aa, int k) {
         k = delta - arrlen
       )
     )
+  )
+  or
+  exists(Field arr, Expr index, int delta, int arrlen |
+    aa.getIndexExpr() = index and
+    aa.getArray() = arr.getAnAccess() and
+    bounded(index, any(ZeroBound z), delta, true, _) and
+    arr.isFinal() and
+    arr.getInitializer().(ArrayCreationExpr).getFirstDimensionSize() = arrlen and
+    k = delta - arrlen
   )
 }
 
